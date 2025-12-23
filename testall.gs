@@ -1,7 +1,7 @@
 /*
 ***********************************************
-Bebidas a Pedido - testall.gs - V1.01
-22/12/2024 - 10:35
+Bebidas a Pedido - testall.gs - V1.03
+23/12/2024 - 15:10
 ***********************************************
 */
 
@@ -30,6 +30,7 @@ function testAll() {
   ejecutarTest(resultados, 'Generación de ID Pedido', testGenerarIdPedido);
   ejecutarTest(resultados, 'Guardado de Pedido', testGuardarPedido);
   ejecutarTest(resultados, 'Lectura de Pedidos', testLeerPedidos);
+  ejecutarTest(resultados, 'Marcar Pagado', testMarcarPagado);
   
   // Mostrar resumen
   console.log('');
@@ -308,33 +309,44 @@ function testGenerarIdPedido() {
 }
 
 // ***********************************************
-// 08. Test: Guardado de Pedido - testall.gs - V1.01-SV01
+// 08. Test: Guardado de Pedido - testall.gs - V1.03-SV01
 // ***********************************************
 
 function testGuardarPedido() {
   try {
-    // Crear pedido de prueba
+    // Crear pedido de prueba con código conocido
+    const codigoTest = 'TEST001';
     const productosTest = [
       {
-        code: 'TEST001',
+        code: codigoTest,
         producto: 'Licor Test 1',
         empaque: 'Botella',
         size: '750ml',
-        precio: 50.00
-      },
-      {
-        code: 'TEST002',
-        producto: 'Licor Test 2',
-        empaque: 'Caja',
-        size: '1L',
-        precio: 75.00
+        precio: 50.00,
+        cantidad: 3  // Pedir 3 unidades
       }
     ];
     
     const clienteTest = 'Cliente Test - ' + new Date().getTime();
+    const telefonoTest = '999888777';
+    
+    // Obtener CantReq ANTES de guardar (si existe el producto TEST001)
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheetLicores = ss.getSheetByName(SHEET_LICORES);
+    const dataLicores = sheetLicores.getDataRange().getValues();
+    
+    let cantReqAntes = null;
+    let filaProducto = -1;
+    for (let i = 1; i < dataLicores.length; i++) {
+      if (dataLicores[i][0] === codigoTest) {
+        filaProducto = i + 1;
+        cantReqAntes = parseInt(dataLicores[i][7]) || 0; // Col H
+        break;
+      }
+    }
     
     // Guardar pedido
-    const resultado = guardarPedido(clienteTest, productosTest);
+    const resultado = guardarPedido(clienteTest, telefonoTest, productosTest);
     
     if (!resultado.success) {
       return {
@@ -343,14 +355,12 @@ function testGuardarPedido() {
       };
     }
     
-    // Verificar que se haya guardado
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
-    const data = sheet.getDataRange().getValues();
+    // Verificar que se haya guardado en Pedidos
+    const sheetPedidos = ss.getSheetByName(SHEET_PEDIDOS);
+    const dataPedidos = sheetPedidos.getDataRange().getValues();
     
-    // Buscar el pedido recién creado
-    const pedidoEncontrado = data.slice(1).some(row => 
-      row[0] === clienteTest && row[7] === resultado.pedidoId
+    const pedidoEncontrado = dataPedidos.slice(1).some(row => 
+      row[9] === resultado.pedidoId // Columna J: Pedido
     );
     
     if (!pedidoEncontrado) {
@@ -360,10 +370,23 @@ function testGuardarPedido() {
       };
     }
     
+    // Verificar que CantReq se haya actualizado (solo si el producto existe)
+    if (filaProducto !== -1 && cantReqAntes !== null) {
+      const dataLicoresActualizada = sheetLicores.getDataRange().getValues();
+      const cantReqDespues = parseInt(dataLicoresActualizada[filaProducto - 1][7]) || 0;
+      
+      if (cantReqDespues !== cantReqAntes + 3) {
+        return {
+          success: false,
+          mensaje: `CantReq no se actualizó correctamente. Antes: ${cantReqAntes}, Después: ${cantReqDespues}, Esperado: ${cantReqAntes + 3}`
+        };
+      }
+    }
+    
     return {
       success: true,
       mensaje: 'Guardado exitoso',
-      detalles: `Pedido: ${resultado.pedidoId}, Cliente: ${clienteTest}, Productos: ${productosTest.length}`
+      detalles: `Pedido: ${resultado.pedidoId}, Cliente: ${clienteTest}, Tel: ${telefonoTest}, Productos: ${productosTest.length}${filaProducto !== -1 ? ', CantReq actualizada correctamente' : ''}`
     };
   } catch (error) {
     return {
@@ -374,7 +397,7 @@ function testGuardarPedido() {
 }
 
 // ***********************************************
-// 09. Test: Lectura de Pedidos - testall.gs - V1.01-SV01
+// 09. Test: Lectura de Pedidos - testall.gs - V1.02-SV01
 // ***********************************************
 
 function testLeerPedidos() {
@@ -400,7 +423,7 @@ function testLeerPedidos() {
     // Si hay pedidos, verificar estructura
     if (pedidos.length > 0) {
       const primer = pedidos[0];
-      const camposRequeridos = ['pedidoId', 'cliente', 'fecha', 'productos', 'total'];
+      const camposRequeridos = ['pedidoId', 'cliente', 'telefono', 'fecha', 'estado', 'productos', 'total'];
       const camposFaltantes = camposRequeridos.filter(campo => !(campo in primer));
       
       if (camposFaltantes.length > 0) {
@@ -415,6 +438,14 @@ function testLeerPedidos() {
         return {
           success: false,
           mensaje: 'El campo productos no es un array'
+        };
+      }
+      
+      // Verificar que productos tengan cantidad
+      if (primer.productos.length > 0 && !('cantidad' in primer.productos[0])) {
+        return {
+          success: false,
+          mensaje: 'Los productos no tienen campo cantidad'
         };
       }
     }
@@ -433,7 +464,133 @@ function testLeerPedidos() {
 }
 
 // ***********************************************
-// 10. Función para Forzar Autorización - testall.gs - V1.01-SV01
+// 10. Test: Marcar Pagado - testall.gs - V1.03-SV01
+// ***********************************************
+
+function testMarcarPagado() {
+  try {
+    const codigoTest = 'TEST001';
+    
+    // Primero crear un pedido de prueba
+    const productosTest = [
+      {
+        code: codigoTest,
+        producto: 'Licor Test Pago',
+        empaque: 'Botella',
+        size: '750ml',
+        precio: 50.00,
+        cantidad: 2
+      }
+    ];
+    
+    const clienteTest = 'Cliente Test Pago - ' + new Date().getTime();
+    const telefonoTest = '999888777';
+    
+    // Obtener valores ANTES en Licores (si existe el producto)
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheetLicores = ss.getSheetByName(SHEET_LICORES);
+    const dataLicoresAntes = sheetLicores.getDataRange().getValues();
+    
+    let cantReqAntes = null;
+    let cantVendidaAntes = null;
+    let filaProducto = -1;
+    
+    for (let i = 1; i < dataLicoresAntes.length; i++) {
+      if (dataLicoresAntes[i][0] === codigoTest) {
+        filaProducto = i + 1;
+        cantReqAntes = parseInt(dataLicoresAntes[i][7]) || 0; // Col H
+        cantVendidaAntes = parseInt(dataLicoresAntes[i][8]) || 0; // Col I
+        break;
+      }
+    }
+    
+    // Guardar pedido
+    const resultadoPedido = guardarPedido(clienteTest, telefonoTest, productosTest);
+    
+    if (!resultadoPedido.success) {
+      return {
+        success: false,
+        mensaje: 'No se pudo crear pedido de prueba: ' + resultadoPedido.message
+      };
+    }
+    
+    const pedidoId = resultadoPedido.pedidoId;
+    
+    // Obtener CantReq DESPUÉS de crear pedido
+    const dataLicoresDespuesPedido = sheetLicores.getDataRange().getValues();
+    let cantReqDespuesPedido = null;
+    if (filaProducto !== -1) {
+      cantReqDespuesPedido = parseInt(dataLicoresDespuesPedido[filaProducto - 1][7]) || 0;
+    }
+    
+    // Marcar como pagado
+    const resultadoPagado = marcarPagado(pedidoId);
+    
+    if (!resultadoPagado.success) {
+      return {
+        success: false,
+        mensaje: 'Error al marcar pagado: ' + resultadoPagado.message
+      };
+    }
+    
+    // Verificar que el estado cambió a "Pagado"
+    const sheetPedidos = ss.getSheetByName(SHEET_PEDIDOS);
+    const dataPedidos = sheetPedidos.getDataRange().getValues();
+    
+    const pedidoEncontrado = dataPedidos.slice(1).find(row => row[9] === pedidoId); // Col J: Pedido
+    
+    if (!pedidoEncontrado) {
+      return {
+        success: false,
+        mensaje: 'No se encontró el pedido después de marcarlo'
+      };
+    }
+    
+    if (pedidoEncontrado[10] !== 'Pagado') { // Col K: Estado
+      return {
+        success: false,
+        mensaje: `Estado incorrecto: ${pedidoEncontrado[10]}, esperado: Pagado`
+      };
+    }
+    
+    // Verificar actualización de CantReq y CantVendida (solo si el producto existe)
+    if (filaProducto !== -1 && cantReqAntes !== null && cantVendidaAntes !== null) {
+      const dataLicoresDespuesPago = sheetLicores.getDataRange().getValues();
+      const cantReqDespues = parseInt(dataLicoresDespuesPago[filaProducto - 1][7]) || 0;
+      const cantVendidaDespues = parseInt(dataLicoresDespuesPago[filaProducto - 1][8]) || 0;
+      
+      // CantReq debería haber bajado en 2
+      if (cantReqDespues !== cantReqDespuesPedido - 2) {
+        return {
+          success: false,
+          mensaje: `CantReq no se actualizó. Antes Pago: ${cantReqDespuesPedido}, Después: ${cantReqDespues}, Esperado: ${cantReqDespuesPedido - 2}`
+        };
+      }
+      
+      // CantVendida debería haber subido en 2
+      if (cantVendidaDespues !== cantVendidaAntes + 2) {
+        return {
+          success: false,
+          mensaje: `CantVendida no se actualizó. Antes: ${cantVendidaAntes}, Después: ${cantVendidaDespues}, Esperado: ${cantVendidaAntes + 2}`
+        };
+      }
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Marcar pagado funciona correctamente',
+      detalles: `Pedido ${pedidoId} marcado como Pagado${filaProducto !== -1 ? ', CantReq y CantVendida actualizadas correctamente' : ''}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 11. Función para Forzar Autorización - testall.gs - V1.02-SV01
 // ***********************************************
 
 function forceAuthorization() {
