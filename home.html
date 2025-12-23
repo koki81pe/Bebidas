@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+  ***********************************************
+  Bebidas a Pedido - home.html - V1.01
+  22/12/2024 - 10:40
+  ***********************************************
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bebidas a Pedido</title>
+  <?!= include('style'); ?>
+</head>
+<body>
+
+  <!-- ***********************************************
+       01. Header Principal - home.html - V1.01-SV01
+       *********************************************** -->
+  <header class="main-header">
+    <div class="header-content">
+      <div class="logo-section">
+        <span class="logo-icon">🥃</span>
+        <h1 class="app-title">Bebidas a Pedido</h1>
+      </div>
+      <button id="btnAdmin" class="btn-admin" title="Acceso Administrador">
+        <span class="admin-icon">👤</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ***********************************************
+       02. Contenedor Principal - home.html - V1.01-SV01
+       *********************************************** -->
+  <main class="main-container" id="mainContainer">
+    
+    <!-- Vista de Productos (Default) -->
+    <div id="vistaProductos" class="vista-productos">
+      
+      <!-- Loader -->
+      <div id="loader" class="loader-container">
+        <div class="loader"></div>
+        <p>Cargando productos...</p>
+      </div>
+
+      <!-- Lista de Productos -->
+      <div id="listaProductos" class="productos-grid" style="display: none;">
+        <!-- Se llena dinámicamente -->
+      </div>
+
+      <!-- Footer con Total y Botón -->
+      <div id="footerPedido" class="footer-pedido" style="display: none;">
+        <div class="total-section">
+          <span class="total-label">Total:</span>
+          <span class="total-amount" id="totalAmount">S/ 0.00</span>
+        </div>
+        <button id="btnHacerPedido" class="btn-primary" disabled>
+          Hacer Pedido
+        </button>
+      </div>
+    </div>
+
+    <!-- Vista de Pedidos (Admin) -->
+    <div id="vistaPedidos" class="vista-pedidos" style="display: none;">
+      <?!= include('pedidos'); ?>
+    </div>
+
+  </main>
+
+  <!-- ***********************************************
+       03. Modal Login Admin - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalLogin" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 class="modal-title">Acceso Administrador</h2>
+        <button class="modal-close" onclick="cerrarModalLogin()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inputUsuario">Código de Acceso</label>
+          <input 
+            type="password" 
+            id="inputUsuario" 
+            class="form-input" 
+            placeholder="Ingresa tu código"
+            autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModalLogin()">Cancelar</button>
+        <button class="btn-primary" onclick="verificarAcceso()">Acceder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       04. Modal Nombre Cliente - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalCliente" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 class="modal-title">Confirmar Pedido</h2>
+        <button class="modal-close" onclick="cerrarModalCliente()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inputCliente">Tu Nombre</label>
+          <input 
+            type="text" 
+            id="inputCliente" 
+            class="form-input" 
+            placeholder="Ingresa tu nombre"
+            autocomplete="name">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModalCliente()">Cancelar</button>
+        <button class="btn-primary" onclick="confirmarPedido()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       05. Modal Pedido Generado - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalPedidoGenerado" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">✓ Pedido Registrado</h2>
+        <button class="modal-close" onclick="cerrarModalPedidoGenerado()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="pedido-info">
+          <p class="pedido-id"><strong>Pedido:</strong> <span id="pedidoIdGenerado"></span></p>
+          <p class="pedido-cliente"><strong>Cliente:</strong> <span id="pedidoClienteNombre"></span></p>
+        </div>
+        
+        <div class="whatsapp-section">
+          <label class="whatsapp-label">Mensaje para WhatsApp:</label>
+          <textarea 
+            id="textoWhatsapp" 
+            class="whatsapp-textarea" 
+            readonly></textarea>
+          <button class="btn-copy" onclick="copiarTexto()">
+            <span class="copy-icon">📋</span> Copiar Texto
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="cerrarModalPedidoGenerado()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incluir Modals y Scripts -->
+  <?!= include('modals'); ?>
+  <?!= include('scripts'); ?>
+
+</body>
+</html>
