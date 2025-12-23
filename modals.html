@@ -1,0 +1,473 @@
+<!--
+***********************************************
+Bebidas a Pedido - modals.html - V1.01
+22/12/2024 - 10:50
+***********************************************
+-->
+
+<!-- ***********************************************
+     01. Contenedor de Toast - modals.html - V1.01-SV01
+     *********************************************** -->
+<div id="toastContainer" class="toast-container"></div>
+
+<style>
+/* ***********************************************
+   02. Estilos Toast Container - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  width: calc(100% - 40px);
+}
+
+/* ***********************************************
+   03. Estilos Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast {
+  background-color: var(--color-surface);
+  border-left: 4px solid;
+  border-radius: var(--border-radius-md);
+  padding: 16px 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: toastSlideIn 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+.toast.removing {
+  animation: toastSlideOut 0.3s ease forwards;
+}
+
+/* ***********************************************
+   04. Tipos de Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast.success {
+  border-left-color: var(--color-success);
+}
+
+.toast.error {
+  border-left-color: var(--color-error);
+}
+
+.toast.warning {
+  border-left-color: var(--color-warning);
+}
+
+.toast.info {
+  border-left-color: var(--color-primary);
+}
+
+/* ***********************************************
+   05. Contenido Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.toast.success .toast-icon {
+  color: var(--color-success);
+}
+
+.toast.error .toast-icon {
+  color: var(--color-error);
+}
+
+.toast.warning .toast-icon {
+  color: var(--color-warning);
+}
+
+.toast.info .toast-icon {
+  color: var(--color-primary);
+}
+
+.toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.toast-message {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  background-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+/* ***********************************************
+   06. Barra de Progreso Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background-color: currentColor;
+  opacity: 0.5;
+  animation: toastProgress linear forwards;
+}
+
+.toast.success .toast-progress {
+  color: var(--color-success);
+}
+
+.toast.error .toast-progress {
+  color: var(--color-error);
+}
+
+.toast.warning .toast-progress {
+  color: var(--color-warning);
+}
+
+.toast.info .toast-progress {
+  color: var(--color-primary);
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* ***********************************************
+   07. Responsividad Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+@media (max-width: 767px) {
+  .toast-container {
+    top: auto;
+    bottom: 20px;
+    right: 10px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: none;
+  }
+  
+  .toast {
+    padding: 14px 16px;
+  }
+  
+  .toast-icon {
+    font-size: 20px;
+  }
+  
+  .toast-title {
+    font-size: 14px;
+  }
+  
+  .toast-message {
+    font-size: 13px;
+  }
+}
+</style>
+
+<script>
+/* ***********************************************
+   08. Sistema de Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+const ToastSystem = {
+  container: null,
+  defaultDuration: 4000,
+  
+  init() {
+    this.container = document.getElementById('toastContainer');
+    if (!this.container) {
+      console.error('Toast container no encontrado');
+    }
+  },
+  
+  show(type, title, message = '', duration = null) {
+    if (!this.container) {
+      this.init();
+    }
+    
+    const icons = {
+      success: '✓',
+      error: '✗',
+      warning: '⚠',
+      info: 'ℹ'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const actualDuration = duration || this.defaultDuration;
+    
+    toast.innerHTML = `
+      <span class="toast-icon">${icons[type] || 'ℹ'}</span>
+      <div class="toast-content">
+        <div class="toast-title">${title}</div>
+        ${message ? `<div class="toast-message">${message}</div>` : ''}
+      </div>
+      <button class="toast-close" onclick="ToastSystem.close(this.parentElement)">×</button>
+      <div class="toast-progress" style="animation-duration: ${actualDuration}ms"></div>
+    `;
+    
+    this.container.appendChild(toast);
+    
+    // Auto cerrar después de la duración
+    setTimeout(() => {
+      this.close(toast);
+    }, actualDuration);
+    
+    return toast;
+  },
+  
+  success(title, message = '', duration = null) {
+    return this.show('success', title, message, duration);
+  },
+  
+  error(title, message = '', duration = null) {
+    return this.show('error', title, message, duration);
+  },
+  
+  warning(title, message = '', duration = null) {
+    return this.show('warning', title, message, duration);
+  },
+  
+  info(title, message = '', duration = null) {
+    return this.show('info', title, message, duration);
+  },
+  
+  close(toastElement) {
+    if (!toastElement || !toastElement.parentElement) return;
+    
+    toastElement.classList.add('removing');
+    
+    setTimeout(() => {
+      if (toastElement.parentElement) {
+        toastElement.parentElement.removeChild(toastElement);
+      }
+    }, 300);
+  },
+  
+  closeAll() {
+    if (!this.container) return;
+    
+    const toasts = this.container.querySelectorAll('.toast');
+    toasts.forEach(toast => this.close(toast));
+  }
+};
+
+/* ***********************************************
+   09. Inicialización - modals.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('DOMContentLoaded', function() {
+  ToastSystem.init();
+  console.log('Toast System inicializado');
+});
+
+/* ***********************************************
+   10. Funciones Helper Globales - modals.html - V1.01-SV01
+   *********************************************** */
+
+// Funciones globales para fácil acceso
+function mostrarExito(titulo, mensaje = '', duracion = null) {
+  ToastSystem.success(titulo, mensaje, duracion);
+}
+
+function mostrarError(titulo, mensaje = '', duracion = null) {
+  ToastSystem.error(titulo, mensaje, duracion);
+}
+
+function mostrarAdvertencia(titulo, mensaje = '', duracion = null) {
+  ToastSystem.warning(titulo, mensaje, duracion);
+}
+
+function mostrarInfo(titulo, mensaje = '', duracion = null) {
+  ToastSystem.info(titulo, mensaje, duracion);
+}
+
+/* ***********************************************
+   11. Manejo de Errores Global - modals.html - V1.01-SV01
+   *********************************************** */
+
+function manejarError(error, contexto = '') {
+  console.error(`Error ${contexto}:`, error);
+  
+  let mensaje = 'Ha ocurrido un error inesperado';
+  
+  if (typeof error === 'string') {
+    mensaje = error;
+  } else if (error && error.message) {
+    mensaje = error.message;
+  }
+  
+  // No mostrar mensajes técnicos largos al usuario
+  if (mensaje.length > 150) {
+    mensaje = 'Ha ocurrido un error. Por favor, intenta nuevamente.';
+  }
+  
+  ToastSystem.error('Error', mensaje, 5000);
+}
+
+/* ***********************************************
+   12. Función de Confirmación - modals.html - V1.01-SV01
+   *********************************************** */
+
+function confirmarAccion(titulo, mensaje, onConfirm, onCancel = null) {
+  // Esta es una versión básica usando confirm del navegador
+  // Se puede mejorar creando un modal personalizado
+  
+  const confirmado = confirm(`${titulo}\n\n${mensaje}`);
+  
+  if (confirmado && onConfirm) {
+    onConfirm();
+  } else if (!confirmado && onCancel) {
+    onCancel();
+  }
+  
+  return confirmado;
+}
+
+/* ***********************************************
+   13. Loader Global - modals.html - V1.01-SV01
+   *********************************************** */
+
+const LoaderGlobal = {
+  loader: null,
+  
+  mostrar(mensaje = 'Cargando...') {
+    // Crear loader si no existe
+    if (!this.loader) {
+      this.loader = document.createElement('div');
+      this.loader.id = 'loaderGlobal';
+      this.loader.className = 'loader-global';
+      this.loader.innerHTML = `
+        <div class="loader-global-overlay"></div>
+        <div class="loader-global-content">
+          <div class="loader"></div>
+          <p class="loader-global-text">${mensaje}</p>
+        </div>
+      `;
+      document.body.appendChild(this.loader);
+    }
+    
+    this.loader.style.display = 'flex';
+    this.loader.querySelector('.loader-global-text').textContent = mensaje;
+  },
+  
+  ocultar() {
+    if (this.loader) {
+      this.loader.style.display = 'none';
+    }
+  }
+};
+
+/* ***********************************************
+   14. Estilos Loader Global - modals.html - V1.01-SV01
+   *********************************************** */
+</script>
+
+<style>
+.loader-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader-global-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.loader-global-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  z-index: 1;
+}
+
+.loader-global-text {
+  color: var(--color-text-muted);
+  font-size: 16px;
+  font-weight: 500;
+}
+</style>
