@@ -1,13 +1,13 @@
 <script>
 /*
 ***********************************************
-Bebidas a Pedido - scripts.html - V1.06
-23/12/2024 - 16:30
+Bebidas a Pedido - scripts.html - V1.09
+23/12/2024 - 19:00
 ***********************************************
 */
 
 /* ***********************************************
-   01. Variables Globales - scripts.html - V1.06-SV01
+   01. Variables Globales - scripts.html - V1.09-SV01
    *********************************************** */
 
 let licoresData = [];
@@ -15,6 +15,9 @@ let productosSeleccionados = [];
 let pedidosData = [];
 let vistaActual = 'productos'; // 'productos' o 'pedidos'
 let tabActual = 'todos'; // 'todos', 'pendientes' o 'pagados'
+
+// URL base de GitHub para fotos de productos
+const FOTOS_BASE_URL = 'https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/Fotos/';
 
 /* ***********************************************
    02. Inicialización - scripts.html - V1.06-SV01
@@ -138,7 +141,7 @@ function renderizarLicores() {
 }
 
 /* ***********************************************
-   06. Crear Card de Producto - scripts.html - V1.06-SV01
+   06. Crear Card de Producto - scripts.html - V1.09-SV01
    *********************************************** */
 
 function crearCardProducto(licor, index) {
@@ -146,8 +149,12 @@ function crearCardProducto(licor, index) {
   card.className = 'producto-card';
   card.dataset.index = index;
   
+  // Construir URL de foto
+  const urlFoto = FOTOS_BASE_URL + licor.code + '.jpg';
+  
   card.innerHTML = `
     <div class="producto-selector">○</div>
+    <a href="${urlFoto}" target="_blank" class="btn-ver-foto" onclick="event.stopPropagation()">Ver Foto ↗</a>
     <div class="producto-nombre">${licor.producto}</div>
     <div class="producto-detalles">
       <span class="producto-detalle">${licor.empaque}</span>
@@ -166,8 +173,10 @@ function crearCardProducto(licor, index) {
   `;
   
   card.addEventListener('click', function(e) {
-    // Evitar toggle si se hace clic en los botones de cantidad
-    if (e.target.classList.contains('btn-cantidad') || e.target.classList.contains('cantidad-input')) {
+    // Evitar toggle si se hace clic en los botones de cantidad o link de foto
+    if (e.target.classList.contains('btn-cantidad') || 
+        e.target.classList.contains('cantidad-input') ||
+        e.target.classList.contains('btn-ver-foto')) {
       return;
     }
     toggleProducto(index);
@@ -754,8 +763,8 @@ document.addEventListener('click', function(e) {
 });
 
 /* ***********************************************
-   22. Log de Estado - scripts.html - V1.06-SV01
+   22. Log de Estado - scripts.html - V1.09-SV01
    *********************************************** */
 
-console.log('Scripts cargados - Bebidas a Pedido V1.06');
+console.log('Scripts cargados - Bebidas a Pedido V1.09');
 </script>
