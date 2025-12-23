@@ -7,7 +7,7 @@ Bebidas a Pedido - scripts.html - V1.06
 */
 
 /* ***********************************************
-   01. Variables Globales - scripts.html - V1.05-SV01
+   01. Variables Globales - scripts.html - V1.06-SV01
    *********************************************** */
 
 let licoresData = [];
@@ -16,15 +16,12 @@ let pedidosData = [];
 let vistaActual = 'productos'; // 'productos' o 'pedidos'
 let tabActual = 'todos'; // 'todos', 'pendientes' o 'pagados'
 
-// URL base de Google Drive para imágenes
-const DRIVE_IMAGE_BASE = 'https://drive.google.com/thumbnail?id=';
-
 /* ***********************************************
-   02. Inicialización - scripts.html - V1.05-SV01
+   02. Inicialización - scripts.html - V1.06-SV01
    *********************************************** */
 
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Inicializando Bebidas a Pedido V1.05...');
+  console.log('Inicializando Bebidas a Pedido V1.06...');
   cargarLicores();
   configurarEventos();
 });
@@ -141,7 +138,7 @@ function renderizarLicores() {
 }
 
 /* ***********************************************
-   06. Crear Card de Producto - scripts.html - V1.05-SV01
+   06. Crear Card de Producto - scripts.html - V1.06-SV01
    *********************************************** */
 
 function crearCardProducto(licor, index) {
@@ -149,14 +146,8 @@ function crearCardProducto(licor, index) {
   card.className = 'producto-card';
   card.dataset.index = index;
   
-  // Generar URL de imagen de Google Drive usando el código del producto
-  const imageUrl = obtenerUrlImagen(licor.code);
-  
   card.innerHTML = `
     <div class="producto-selector">○</div>
-    ${imageUrl ? `<div class="producto-imagen">
-      <img src="${imageUrl}" alt="${licor.producto}" onerror="this.parentElement.style.display='none'">
-    </div>` : ''}
     <div class="producto-nombre">${licor.producto}</div>
     <div class="producto-detalles">
       <span class="producto-detalle">${licor.empaque}</span>
@@ -183,43 +174,6 @@ function crearCardProducto(licor, index) {
   });
   
   return card;
-}
-
-/* ***********************************************
-   06b. Obtener URL de Imagen - scripts.html - V1.06-SV02
-   *********************************************** */
-
-function obtenerUrlImagen(code) {
-  // Mapeo de códigos (con guiones) a IDs de Google Drive
-  // Los archivos se llaman: CR12-B-750.jpg (igual que el código)
-  // Para obtener cada ID: Click derecho en Drive → Compartir → Copiar enlace
-  // El ID está en: https://drive.google.com/file/d/[ID_AQUI]/view
-  
-  const imageMap = {
-    // Códigos reales del Excel (Columna A de Licores)
-    'CR12-B-750': '',        // Chivas Regal 12 años
-    'CR18-C-750': '',        // Chivas Regal 18 años
-    'SS-B-750': '',          // Something Special
-    'SSSS-L-750': '',        // Something Special (Lata)
-    'SS15-B-750': '',        // Something Special 15 años
-    'JWBL-B-750': '',        // Johnnie Walker Black Label (Botella)
-    'JWBL-L-750': '',        // Johnnie Walker Black Label (Lata)
-    'JWBL-C-1L': '',         // Johnnie Walker Black Label (Caja 1L)
-    'Ball-B-750': '',        // Ballantines
-    'BallGS12-B-750': '',    // Ballantines Gold Seal 12 años
-    'BallSR12-B-1L': '',     // Ballantines Special Reserve 12 años
-    'OPS-B-750': '',         // Old Parr Superior
-    'OPG-B-750': ''          // Old Parr Grand (probablemente)
-  };
-  
-  const fileId = imageMap[code];
-  if (!fileId || fileId === '') {
-    console.log(`Imagen pendiente para: ${code}`);
-    return null;
-  }
-  
-  // Usar thumbnail API de Google Drive
-  return `${DRIVE_IMAGE_BASE}${fileId}&sz=w300`;
 }
 
 /* ***********************************************
@@ -565,7 +519,7 @@ function limpiarSeleccion() {
 }
 
 /* ***********************************************
-   16. Vista Pedidos - scripts.html - V1.05-SV01
+   16. Vista Pedidos - scripts.html - V1.06-SV01
    *********************************************** */
 
 function mostrarVistaPedidos() {
@@ -634,7 +588,7 @@ function cargarPedidos() {
 }
 
 /* ***********************************************
-   18. Renderizar Pedidos - scripts.html - V1.04-SV01
+   18. Renderizar Pedidos - scripts.html - V1.06-SV01
    *********************************************** */
 
 function renderizarPedidos() {
@@ -737,7 +691,7 @@ function crearCardPedido(pedido) {
 }
 
 /* ***********************************************
-   20. Marcar Como Pagado - scripts.html - V1.04-SV01
+   20. Marcar Como Pagado - scripts.html - V1.06-SV01
    *********************************************** */
 
 function cambiarTabPedidos(tab) {
