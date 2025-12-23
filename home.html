@@ -3,8 +3,8 @@
 <head>
   <!--
   ***********************************************
-  Bebidas a Pedido - home.html - V1.05
-  23/12/2024 - 16:00
+  Bebidas a Pedido - home.html - V1.08
+  23/12/2024 - 18:00
   ***********************************************
   -->
   <meta charset="UTF-8">
@@ -166,6 +166,22 @@
       </div>
       <div class="modal-footer">
         <button class="btn-primary" onclick="cerrarModalPedidoGenerado()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       06. Modal Imagen de Producto - home.html - V1.08-SV01
+       *********************************************** -->
+  <div id="modalImagen" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="cerrarModalImagen()"></div>
+    <div class="modal-content modal-imagen">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalImagenTitulo">Producto</h2>
+        <button class="modal-close" onclick="cerrarModalImagen()">×</button>
+      </div>
+      <div class="modal-body modal-imagen-body">
+        <img id="modalImagenSrc" src="" alt="Producto" class="imagen-producto-modal">
       </div>
     </div>
   </div>
