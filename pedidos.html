@@ -1,12 +1,12 @@
 <!--
 ***********************************************
-Bebidas a Pedido - pedidos.html - V1.01
-22/12/2024 - 11:00
+Bebidas a Pedido - pedidos.html - V1.05
+23/12/2024 - 16:00
 ***********************************************
 -->
 
 <!-- ***********************************************
-     01. Header Pedidos - pedidos.html - V1.01-SV01
+     01. Header Pedidos - pedidos.html - V1.04-SV01
      *********************************************** -->
 <div class="pedidos-header">
   <h2>📋 Pedidos Registrados</h2>
@@ -16,7 +16,22 @@ Bebidas a Pedido - pedidos.html - V1.01
 </div>
 
 <!-- ***********************************************
-     02. Lista de Pedidos - pedidos.html - V1.01-SV01
+     02. Pestañas de Filtrado - pedidos.html - V1.04-SV01
+     *********************************************** -->
+<div class="pedidos-tabs">
+  <button class="tab-button active" data-tab="todos" onclick="cambiarTabPedidos('todos')">
+    📊 Todos
+  </button>
+  <button class="tab-button" data-tab="pendientes" onclick="cambiarTabPedidos('pendientes')">
+    ⏳ Pendientes
+  </button>
+  <button class="tab-button" data-tab="pagados" onclick="cambiarTabPedidos('pagados')">
+    ✅ Pagados
+  </button>
+</div>
+
+<!-- ***********************************************
+     03. Lista de Pedidos - pedidos.html - V1.04-SV01
      *********************************************** -->
 <div id="listaPedidos" class="lista-pedidos">
   <!-- Se llena dinámicamente con JavaScript -->
