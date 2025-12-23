@@ -1,0 +1,2954 @@
+// ============================================
+// SOLID CODE - BEBIDAS
+// Generado: 23/12/2025, 11:59:43 a. m.
+// Total de archivos: 7
+// ============================================
+
+
+
+// ============================================
+// ARCHIVO 1/7: code.gs
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/code.gs
+// ============================================
+
+/*
+***********************************************
+Bebidas a Pedido - code.gs - V1.01
+22/12/2024 - 10:30
+***********************************************
+*/
+
+// ***********************************************
+// 01. Configuración Global - code.gs - V1.01-SV01
+// ***********************************************
+
+const SHEET_ID = '1i2sy3pov9zI3pBJiwGJl070nDmFd_zwfq9Oxv3Gw5MI';
+const SHEET_LICORES = 'Licores';
+const SHEET_PEDIDOS = 'Pedidos';
+const SHEET_ADMIN = 'admin';
+
+// ***********************************************
+// 02. Función Principal - code.gs - V1.01-SV01
+// ***********************************************
+
+function doGet() {
+  return HtmlService.createTemplateFromFile('home')
+    .evaluate()
+    .setTitle('Bebidas a Pedido')
+    .setFaviconUrl('https://img.icons8.com/color/48/000000/whiskey.png')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
+
+// ***********************************************
+// 03. Incluir Archivos HTML - code.gs - V1.01-SV01
+// ***********************************************
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+// ***********************************************
+// 04. Obtener Lista de Licores - code.gs - V1.01-SV01
+// ***********************************************
+
+function getLicores() {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_LICORES);
+    
+    if (!sheet) {
+      console.error('No se encontró la hoja: ' + SHEET_LICORES);
+      return { success: false, message: 'No se encontró la hoja de Licores' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    // Filtrar filas vacías
+    const licores = rows
+      .filter(row => row[1]) // Filtrar por columna Producto (índice 1)
+      .map(row => ({
+        code: row[0] || '',
+        producto: row[1] || '',
+        empaque: row[2] || '',
+        size: row[3] || '',
+        sugerido: row[4] || 0,
+        cantidad: row[5] || 0,
+        precio: row[6] || 0
+      }));
+    
+    console.log('Licores obtenidos: ' + licores.length);
+    return { success: true, data: licores };
+    
+  } catch (error) {
+    console.error('Error en getLicores: ' + error.toString());
+    return { success: false, message: 'Error al obtener licores: ' + error.toString() };
+  }
+}
+
+// ***********************************************
+// 05. Guardar Pedido - code.gs - V1.01-SV01
+// ***********************************************
+
+function guardarPedido(cliente, productos) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
+    
+    if (!sheet) {
+      console.error('No se encontró la hoja: ' + SHEET_PEDIDOS);
+      return { success: false, message: 'No se encontró la hoja de Pedidos' };
+    }
+    
+    // Generar ID de pedido
+    const pedidoId = generarIdPedido();
+    const fecha = Utilities.formatDate(new Date(), 'America/Lima', 'dd/MM/yyyy HH:mm:ss');
+    
+    // Preparar datos para insertar
+    const rows = productos.map(prod => [
+      cliente,           // Cliente
+      prod.code,         // Code
+      prod.producto,     // Producto
+      prod.empaque,      // Empaque
+      prod.size,         // Size
+      prod.precio,       // Precio
+      fecha,             // Fecha
+      pedidoId           // Pedido
+    ]);
+    
+    // Insertar todas las filas del pedido
+    if (rows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
+    }
+    
+    console.log('Pedido guardado: ' + pedidoId + ' - Cliente: ' + cliente + ' - Productos: ' + productos.length);
+    
+    return { 
+      success: true, 
+      message: 'Pedido registrado exitosamente',
+      pedidoId: pedidoId
+    };
+    
+  } catch (error) {
+    console.error('Error en guardarPedido: ' + error.toString());
+    return { success: false, message: 'Error al guardar pedido: ' + error.toString() };
+  }
+}
+
+// ***********************************************
+// 06. Generar ID de Pedido - code.gs - V1.01-SV01
+// ***********************************************
+
+function generarIdPedido() {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
+    
+    // Obtener fecha actual en formato YYYYMMDD
+    const fecha = Utilities.formatDate(new Date(), 'America/Lima', 'yyyyMMdd');
+    
+    // Buscar el último pedido del día
+    const data = sheet.getDataRange().getValues();
+    const pedidosHoy = data
+      .slice(1) // Saltar encabezados
+      .map(row => row[7]) // Columna Pedido (índice 7)
+      .filter(pedido => pedido && pedido.toString().includes('PED-' + fecha));
+    
+    // Calcular el siguiente número
+    let numero = 1;
+    if (pedidosHoy.length > 0) {
+      const numeros = pedidosHoy.map(pedido => {
+        const partes = pedido.toString().split('-');
+        return parseInt(partes[2]) || 0;
+      });
+      numero = Math.max(...numeros) + 1;
+    }
+    
+    // Formatear con ceros a la izquierda (3 dígitos)
+    const numeroFormateado = numero.toString().padStart(3, '0');
+    
+    const pedidoId = `PED-${fecha}-${numeroFormateado}`;
+    console.log('ID generado: ' + pedidoId);
+    
+    return pedidoId;
+    
+  } catch (error) {
+    console.error('Error en generarIdPedido: ' + error.toString());
+    // En caso de error, generar un ID básico con timestamp
+    const timestamp = new Date().getTime();
+    return `PED-${timestamp}`;
+  }
+}
+
+// ***********************************************
+// 07. Verificar Acceso Admin - code.gs - V1.01-SV01
+// ***********************************************
+
+function verificarAcceso(usuario) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_ADMIN);
+    
+    if (!sheet) {
+      console.error('No se encontró la hoja: ' + SHEET_ADMIN);
+      return { success: false, message: 'Error de configuración' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const usuarios = data.slice(1).map(row => row[0].toString().toLowerCase());
+    
+    const usuarioIngresado = usuario.toString().toLowerCase().trim();
+    const encontrado = usuarios.includes(usuarioIngresado);
+    
+    console.log('Verificación de acceso - Usuario: ' + usuario + ' - Resultado: ' + encontrado);
+    
+    return { 
+      success: encontrado,
+      message: encontrado ? 'Acceso concedido' : 'Usuario no autorizado'
+    };
+    
+  } catch (error) {
+    console.error('Error en verificarAcceso: ' + error.toString());
+    return { success: false, message: 'Error al verificar acceso' };
+  }
+}
+
+// ***********************************************
+// 08. Obtener Pedidos - code.gs - V1.01-SV02
+// ***********************************************
+
+function getPedidos() {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
+    
+    if (!sheet) {
+      console.error('No se encontró la hoja: ' + SHEET_PEDIDOS);
+      return { success: false, message: 'No se encontró la hoja de Pedidos' };
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const rows = data.slice(1); // Saltar encabezados
+    
+    console.log('Total de filas en Pedidos: ' + rows.length);
+    
+    // Filtrar filas vacías y mapear datos
+    const pedidos = rows
+      .filter(row => row[7]) // Filtrar por columna Pedido (índice 7)
+      .map(row => {
+        // Formatear fecha - aceptar cualquier formato
+        let fechaFormateada = '';
+        try {
+          if (row[6]) {
+            if (row[6] instanceof Date) {
+              fechaFormateada = Utilities.formatDate(row[6], 'America/Lima', 'dd/MM/yyyy HH:mm');
+            } else {
+              fechaFormateada = row[6].toString();
+            }
+          }
+        } catch (e) {
+          fechaFormateada = row[6] ? row[6].toString() : '';
+        }
+        
+        return {
+          cliente: row[0] || '',
+          code: row[1] || '',
+          producto: row[2] || '',
+          empaque: row[3] || '',
+          size: row[4] || '',
+          precio: parseFloat(row[5]) || 0,
+          fecha: fechaFormateada,
+          pedidoId: row[7] || ''
+        };
+      });
+    
+    console.log('Pedidos filtrados: ' + pedidos.length);
+    
+    // Agrupar por pedidoId
+    const pedidosAgrupados = {};
+    pedidos.forEach(item => {
+      if (!pedidosAgrupados[item.pedidoId]) {
+        pedidosAgrupados[item.pedidoId] = {
+          pedidoId: item.pedidoId,
+          cliente: item.cliente,
+          fecha: item.fecha,
+          productos: [],
+          total: 0
+        };
+      }
+      
+      pedidosAgrupados[item.pedidoId].productos.push({
+        code: item.code,
+        producto: item.producto,
+        empaque: item.empaque,
+        size: item.size,
+        precio: item.precio
+      });
+      
+      pedidosAgrupados[item.pedidoId].total += item.precio;
+    });
+    
+    // Convertir a array y ordenar por pedidoId (más antiguos primero)
+    const pedidosArray = Object.values(pedidosAgrupados).sort((a, b) => {
+      return a.pedidoId.localeCompare(b.pedidoId);
+    });
+    
+    console.log('Pedidos agrupados: ' + pedidosArray.length);
+    return { success: true, data: pedidosArray };
+    
+  } catch (error) {
+    console.error('Error en getPedidos: ' + error.toString());
+    console.error('Stack trace: ' + error.stack);
+    return { success: false, message: 'Error al obtener pedidos: ' + error.toString() };
+  }
+}
+
+
+// ============================================
+// ARCHIVO 2/7: home.html
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/home.html
+// ============================================
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+  ***********************************************
+  Bebidas a Pedido - home.html - V1.01
+  22/12/2024 - 10:40
+  ***********************************************
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bebidas a Pedido</title>
+  <?!= include('style'); ?>
+</head>
+<body>
+
+  <!-- ***********************************************
+       01. Header Principal - home.html - V1.01-SV01
+       *********************************************** -->
+  <header class="main-header">
+    <div class="header-content">
+      <div class="logo-section">
+        <span class="logo-icon">🥃</span>
+        <h1 class="app-title">Bebidas a Pedido</h1>
+      </div>
+      <button id="btnAdmin" class="btn-admin" title="Acceso Administrador">
+        <span class="admin-icon">👤</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ***********************************************
+       02. Contenedor Principal - home.html - V1.01-SV01
+       *********************************************** -->
+  <main class="main-container" id="mainContainer">
+    
+    <!-- Vista de Productos (Default) -->
+    <div id="vistaProductos" class="vista-productos">
+      
+      <!-- Loader -->
+      <div id="loader" class="loader-container">
+        <div class="loader"></div>
+        <p>Cargando productos...</p>
+      </div>
+
+      <!-- Lista de Productos -->
+      <div id="listaProductos" class="productos-grid" style="display: none;">
+        <!-- Se llena dinámicamente -->
+      </div>
+
+      <!-- Footer con Total y Botón -->
+      <div id="footerPedido" class="footer-pedido" style="display: none;">
+        <div class="total-section">
+          <span class="total-label">Total:</span>
+          <span class="total-amount" id="totalAmount">S/ 0.00</span>
+        </div>
+        <button id="btnHacerPedido" class="btn-primary" disabled>
+          Hacer Pedido
+        </button>
+      </div>
+    </div>
+
+    <!-- Vista de Pedidos (Admin) -->
+    <div id="vistaPedidos" class="vista-pedidos" style="display: none;">
+      <?!= include('pedidos'); ?>
+    </div>
+
+  </main>
+
+  <!-- ***********************************************
+       03. Modal Login Admin - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalLogin" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 class="modal-title">Acceso Administrador</h2>
+        <button class="modal-close" onclick="cerrarModalLogin()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inputUsuario">Código de Acceso</label>
+          <input 
+            type="password" 
+            id="inputUsuario" 
+            class="form-input" 
+            placeholder="Ingresa tu código"
+            autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModalLogin()">Cancelar</button>
+        <button class="btn-primary" onclick="verificarAcceso()">Acceder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       04. Modal Nombre Cliente - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalCliente" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2 class="modal-title">Confirmar Pedido</h2>
+        <button class="modal-close" onclick="cerrarModalCliente()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="inputCliente">Tu Nombre</label>
+          <input 
+            type="text" 
+            id="inputCliente" 
+            class="form-input" 
+            placeholder="Ingresa tu nombre"
+            autocomplete="name">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cerrarModalCliente()">Cancelar</button>
+        <button class="btn-primary" onclick="confirmarPedido()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       05. Modal Pedido Generado - home.html - V1.01-SV01
+       *********************************************** -->
+  <div id="modalPedidoGenerado" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">✓ Pedido Registrado</h2>
+        <button class="modal-close" onclick="cerrarModalPedidoGenerado()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="pedido-info">
+          <p class="pedido-id"><strong>Pedido:</strong> <span id="pedidoIdGenerado"></span></p>
+          <p class="pedido-cliente"><strong>Cliente:</strong> <span id="pedidoClienteNombre"></span></p>
+        </div>
+        
+        <div class="whatsapp-section">
+          <label class="whatsapp-label">Mensaje para WhatsApp:</label>
+          <textarea 
+            id="textoWhatsapp" 
+            class="whatsapp-textarea" 
+            readonly></textarea>
+          <button class="btn-copy" onclick="copiarTexto()">
+            <span class="copy-icon">📋</span> Copiar Texto
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="cerrarModalPedidoGenerado()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incluir Modals y Scripts -->
+  <?!= include('modals'); ?>
+  <?!= include('scripts'); ?>
+
+</body>
+</html>
+
+
+// ============================================
+// ARCHIVO 3/7: modals.html
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/modals.html
+// ============================================
+
+<!--
+***********************************************
+Bebidas a Pedido - modals.html - V1.01
+22/12/2024 - 10:50
+***********************************************
+-->
+
+<!-- ***********************************************
+     01. Contenedor de Toast - modals.html - V1.01-SV01
+     *********************************************** -->
+<div id="toastContainer" class="toast-container"></div>
+
+<style>
+/* ***********************************************
+   02. Estilos Toast Container - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  width: calc(100% - 40px);
+}
+
+/* ***********************************************
+   03. Estilos Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast {
+  background-color: var(--color-surface);
+  border-left: 4px solid;
+  border-radius: var(--border-radius-md);
+  padding: 16px 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  animation: toastSlideIn 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+.toast.removing {
+  animation: toastSlideOut 0.3s ease forwards;
+}
+
+/* ***********************************************
+   04. Tipos de Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast.success {
+  border-left-color: var(--color-success);
+}
+
+.toast.error {
+  border-left-color: var(--color-error);
+}
+
+.toast.warning {
+  border-left-color: var(--color-warning);
+}
+
+.toast.info {
+  border-left-color: var(--color-primary);
+}
+
+/* ***********************************************
+   05. Contenido Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.toast.success .toast-icon {
+  color: var(--color-success);
+}
+
+.toast.error .toast-icon {
+  color: var(--color-error);
+}
+
+.toast.warning .toast-icon {
+  color: var(--color-warning);
+}
+
+.toast.info .toast-icon {
+  color: var(--color-primary);
+}
+
+.toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.toast-message {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  background-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+/* ***********************************************
+   06. Barra de Progreso Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background-color: currentColor;
+  opacity: 0.5;
+  animation: toastProgress linear forwards;
+}
+
+.toast.success .toast-progress {
+  color: var(--color-success);
+}
+
+.toast.error .toast-progress {
+  color: var(--color-error);
+}
+
+.toast.warning .toast-progress {
+  color: var(--color-warning);
+}
+
+.toast.info .toast-progress {
+  color: var(--color-primary);
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* ***********************************************
+   07. Responsividad Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+@media (max-width: 767px) {
+  .toast-container {
+    top: auto;
+    bottom: 20px;
+    right: 10px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: none;
+  }
+  
+  .toast {
+    padding: 14px 16px;
+  }
+  
+  .toast-icon {
+    font-size: 20px;
+  }
+  
+  .toast-title {
+    font-size: 14px;
+  }
+  
+  .toast-message {
+    font-size: 13px;
+  }
+}
+</style>
+
+<script>
+/* ***********************************************
+   08. Sistema de Toast - modals.html - V1.01-SV01
+   *********************************************** */
+
+const ToastSystem = {
+  container: null,
+  defaultDuration: 4000,
+  
+  init() {
+    this.container = document.getElementById('toastContainer');
+    if (!this.container) {
+      console.error('Toast container no encontrado');
+    }
+  },
+  
+  show(type, title, message = '', duration = null) {
+    if (!this.container) {
+      this.init();
+    }
+    
+    const icons = {
+      success: '✓',
+      error: '✗',
+      warning: '⚠',
+      info: 'ℹ'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const actualDuration = duration || this.defaultDuration;
+    
+    toast.innerHTML = `
+      <span class="toast-icon">${icons[type] || 'ℹ'}</span>
+      <div class="toast-content">
+        <div class="toast-title">${title}</div>
+        ${message ? `<div class="toast-message">${message}</div>` : ''}
+      </div>
+      <button class="toast-close" onclick="ToastSystem.close(this.parentElement)">×</button>
+      <div class="toast-progress" style="animation-duration: ${actualDuration}ms"></div>
+    `;
+    
+    this.container.appendChild(toast);
+    
+    // Auto cerrar después de la duración
+    setTimeout(() => {
+      this.close(toast);
+    }, actualDuration);
+    
+    return toast;
+  },
+  
+  success(title, message = '', duration = null) {
+    return this.show('success', title, message, duration);
+  },
+  
+  error(title, message = '', duration = null) {
+    return this.show('error', title, message, duration);
+  },
+  
+  warning(title, message = '', duration = null) {
+    return this.show('warning', title, message, duration);
+  },
+  
+  info(title, message = '', duration = null) {
+    return this.show('info', title, message, duration);
+  },
+  
+  close(toastElement) {
+    if (!toastElement || !toastElement.parentElement) return;
+    
+    toastElement.classList.add('removing');
+    
+    setTimeout(() => {
+      if (toastElement.parentElement) {
+        toastElement.parentElement.removeChild(toastElement);
+      }
+    }, 300);
+  },
+  
+  closeAll() {
+    if (!this.container) return;
+    
+    const toasts = this.container.querySelectorAll('.toast');
+    toasts.forEach(toast => this.close(toast));
+  }
+};
+
+/* ***********************************************
+   09. Inicialización - modals.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('DOMContentLoaded', function() {
+  ToastSystem.init();
+  console.log('Toast System inicializado');
+});
+
+/* ***********************************************
+   10. Funciones Helper Globales - modals.html - V1.01-SV01
+   *********************************************** */
+
+// Funciones globales para fácil acceso
+function mostrarExito(titulo, mensaje = '', duracion = null) {
+  ToastSystem.success(titulo, mensaje, duracion);
+}
+
+function mostrarError(titulo, mensaje = '', duracion = null) {
+  ToastSystem.error(titulo, mensaje, duracion);
+}
+
+function mostrarAdvertencia(titulo, mensaje = '', duracion = null) {
+  ToastSystem.warning(titulo, mensaje, duracion);
+}
+
+function mostrarInfo(titulo, mensaje = '', duracion = null) {
+  ToastSystem.info(titulo, mensaje, duracion);
+}
+
+/* ***********************************************
+   11. Manejo de Errores Global - modals.html - V1.01-SV01
+   *********************************************** */
+
+function manejarError(error, contexto = '') {
+  console.error(`Error ${contexto}:`, error);
+  
+  let mensaje = 'Ha ocurrido un error inesperado';
+  
+  if (typeof error === 'string') {
+    mensaje = error;
+  } else if (error && error.message) {
+    mensaje = error.message;
+  }
+  
+  // No mostrar mensajes técnicos largos al usuario
+  if (mensaje.length > 150) {
+    mensaje = 'Ha ocurrido un error. Por favor, intenta nuevamente.';
+  }
+  
+  ToastSystem.error('Error', mensaje, 5000);
+}
+
+/* ***********************************************
+   12. Función de Confirmación - modals.html - V1.01-SV01
+   *********************************************** */
+
+function confirmarAccion(titulo, mensaje, onConfirm, onCancel = null) {
+  // Esta es una versión básica usando confirm del navegador
+  // Se puede mejorar creando un modal personalizado
+  
+  const confirmado = confirm(`${titulo}\n\n${mensaje}`);
+  
+  if (confirmado && onConfirm) {
+    onConfirm();
+  } else if (!confirmado && onCancel) {
+    onCancel();
+  }
+  
+  return confirmado;
+}
+
+/* ***********************************************
+   13. Loader Global - modals.html - V1.01-SV01
+   *********************************************** */
+
+const LoaderGlobal = {
+  loader: null,
+  
+  mostrar(mensaje = 'Cargando...') {
+    // Crear loader si no existe
+    if (!this.loader) {
+      this.loader = document.createElement('div');
+      this.loader.id = 'loaderGlobal';
+      this.loader.className = 'loader-global';
+      this.loader.innerHTML = `
+        <div class="loader-global-overlay"></div>
+        <div class="loader-global-content">
+          <div class="loader"></div>
+          <p class="loader-global-text">${mensaje}</p>
+        </div>
+      `;
+      document.body.appendChild(this.loader);
+    }
+    
+    this.loader.style.display = 'flex';
+    this.loader.querySelector('.loader-global-text').textContent = mensaje;
+  },
+  
+  ocultar() {
+    if (this.loader) {
+      this.loader.style.display = 'none';
+    }
+  }
+};
+
+/* ***********************************************
+   14. Estilos Loader Global - modals.html - V1.01-SV01
+   *********************************************** */
+</script>
+
+<style>
+.loader-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.loader-global-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.loader-global-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  z-index: 1;
+}
+
+.loader-global-text {
+  color: var(--color-text-muted);
+  font-size: 16px;
+  font-weight: 500;
+}
+</style>
+
+
+// ============================================
+// ARCHIVO 4/7: pedidos.html
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/pedidos.html
+// ============================================
+
+<!--
+***********************************************
+Bebidas a Pedido - pedidos.html - V1.01
+22/12/2024 - 11:00
+***********************************************
+-->
+
+<!-- ***********************************************
+     01. Header Pedidos - pedidos.html - V1.01-SV01
+     *********************************************** -->
+<div class="pedidos-header">
+  <h2>📋 Pedidos Registrados</h2>
+  <button class="btn-home" onclick="volverHome()">
+    🏠 Home
+  </button>
+</div>
+
+<!-- ***********************************************
+     02. Lista de Pedidos - pedidos.html - V1.01-SV01
+     *********************************************** -->
+<div id="listaPedidos" class="lista-pedidos">
+  <!-- Se llena dinámicamente con JavaScript -->
+  <div class="loader-container">
+    <div class="loader"></div>
+    <p>Cargando pedidos...</p>
+  </div>
+</div>
+
+
+// ============================================
+// ARCHIVO 5/7: scripts.html
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/scripts.html
+// ============================================
+
+<script>
+/*
+***********************************************
+Bebidas a Pedido - scripts.html - V1.01
+22/12/2024 - 10:55
+***********************************************
+*/
+
+/* ***********************************************
+   01. Variables Globales - scripts.html - V1.01-SV01
+   *********************************************** */
+
+let licoresData = [];
+let productosSeleccionados = [];
+let pedidosData = [];
+let vistaActual = 'productos'; // 'productos' o 'pedidos'
+
+/* ***********************************************
+   02. Inicialización - scripts.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Inicializando Bebidas a Pedido...');
+  cargarLicores();
+  configurarEventos();
+});
+
+/* ***********************************************
+   03. Configurar Eventos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function configurarEventos() {
+  // Botón Admin
+  const btnAdmin = document.getElementById('btnAdmin');
+  if (btnAdmin) {
+    btnAdmin.addEventListener('click', abrirModalLogin);
+  }
+  
+  // Botón Hacer Pedido
+  const btnHacerPedido = document.getElementById('btnHacerPedido');
+  if (btnHacerPedido) {
+    btnHacerPedido.addEventListener('click', abrirModalCliente);
+  }
+  
+  // Enter en inputs
+  const inputUsuario = document.getElementById('inputUsuario');
+  if (inputUsuario) {
+    inputUsuario.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        verificarAcceso();
+      }
+    });
+  }
+  
+  const inputCliente = document.getElementById('inputCliente');
+  if (inputCliente) {
+    inputCliente.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        confirmarPedido();
+      }
+    });
+  }
+  
+  console.log('Eventos configurados');
+}
+
+/* ***********************************************
+   04. Cargar Licores - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function cargarLicores() {
+  const loader = document.getElementById('loader');
+  const listaProductos = document.getElementById('listaProductos');
+  
+  console.log('Cargando licores desde el servidor...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      console.log('Respuesta recibida:', resultado);
+      
+      if (resultado.success) {
+        licoresData = resultado.data;
+        console.log(`${licoresData.length} licores cargados`);
+        renderizarLicores();
+        
+        // Ocultar loader, mostrar productos
+        if (loader) loader.style.display = 'none';
+        if (listaProductos) listaProductos.style.display = 'grid';
+        
+        mostrarInfo('Listo', `${licoresData.length} productos disponibles`);
+      } else {
+        throw new Error(resultado.message || 'Error al cargar licores');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error al cargar licores:', error);
+      if (loader) loader.style.display = 'none';
+      manejarError(error, 'al cargar productos');
+    })
+    .getLicores();
+}
+
+/* ***********************************************
+   05. Renderizar Licores - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function renderizarLicores() {
+  const listaProductos = document.getElementById('listaProductos');
+  if (!listaProductos) {
+    console.error('Contenedor de productos no encontrado');
+    return;
+  }
+  
+  listaProductos.innerHTML = '';
+  
+  if (licoresData.length === 0) {
+    listaProductos.innerHTML = '<p class="text-center">No hay productos disponibles</p>';
+    return;
+  }
+  
+  licoresData.forEach((licor, index) => {
+    const card = crearCardProducto(licor, index);
+    listaProductos.appendChild(card);
+  });
+  
+  console.log('Licores renderizados');
+}
+
+/* ***********************************************
+   06. Crear Card de Producto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function crearCardProducto(licor, index) {
+  const card = document.createElement('div');
+  card.className = 'producto-card';
+  card.dataset.index = index;
+  
+  card.innerHTML = `
+    <div class="producto-nombre">${licor.producto}</div>
+    <div class="producto-detalles">
+      <span class="producto-detalle">${licor.empaque}</span>
+      <span class="producto-detalle">${licor.size}</span>
+    </div>
+    <div class="producto-precio">S/ ${parseFloat(licor.precio).toFixed(2)}</div>
+  `;
+  
+  card.addEventListener('click', function() {
+    toggleProducto(index);
+  });
+  
+  return card;
+}
+
+/* ***********************************************
+   07. Toggle Producto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function toggleProducto(index) {
+  const licor = licoresData[index];
+  const card = document.querySelector(`.producto-card[data-index="${index}"]`);
+  
+  if (!card) return;
+  
+  // Verificar si ya está seleccionado
+  const indexSeleccionado = productosSeleccionados.findIndex(p => p.code === licor.code);
+  
+  if (indexSeleccionado !== -1) {
+    // Deseleccionar
+    productosSeleccionados.splice(indexSeleccionado, 1);
+    card.classList.remove('selected');
+  } else {
+    // Seleccionar
+    productosSeleccionados.push({
+      code: licor.code,
+      producto: licor.producto,
+      empaque: licor.empaque,
+      size: licor.size,
+      precio: parseFloat(licor.precio)
+    });
+    card.classList.add('selected');
+  }
+  
+  actualizarTotal();
+}
+
+/* ***********************************************
+   08. Actualizar Total - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function actualizarTotal() {
+  const totalAmount = document.getElementById('totalAmount');
+  const btnHacerPedido = document.getElementById('btnHacerPedido');
+  const footerPedido = document.getElementById('footerPedido');
+  
+  const total = productosSeleccionados.reduce((sum, prod) => sum + prod.precio, 0);
+  
+  if (totalAmount) {
+    totalAmount.textContent = `S/ ${total.toFixed(2)}`;
+  }
+  
+  if (btnHacerPedido) {
+    if (productosSeleccionados.length > 0) {
+      btnHacerPedido.disabled = false;
+      if (footerPedido) footerPedido.style.display = 'flex';
+    } else {
+      btnHacerPedido.disabled = true;
+      if (footerPedido) footerPedido.style.display = 'none';
+    }
+  }
+  
+  console.log(`Total actualizado: S/ ${total.toFixed(2)} - Productos: ${productosSeleccionados.length}`);
+}
+
+/* ***********************************************
+   09. Modal Login Admin - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function abrirModalLogin() {
+  const modal = document.getElementById('modalLogin');
+  const input = document.getElementById('inputUsuario');
+  
+  if (modal) {
+    modal.style.display = 'flex';
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+function cerrarModalLogin() {
+  const modal = document.getElementById('modalLogin');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function verificarAcceso() {
+  const input = document.getElementById('inputUsuario');
+  if (!input) return;
+  
+  const usuario = input.value.trim();
+  
+  if (!usuario) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu código de acceso');
+    return;
+  }
+  
+  LoaderGlobal.mostrar('Verificando...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        cerrarModalLogin();
+        mostrarExito('Acceso concedido', 'Bienvenido');
+        mostrarVistaPedidos();
+      } else {
+        mostrarError('Acceso denegado', 'Código no válido');
+        input.value = '';
+        input.focus();
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al verificar acceso');
+    })
+    .verificarAcceso(usuario);
+}
+
+/* ***********************************************
+   10. Modal Nombre Cliente - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function abrirModalCliente() {
+  if (productosSeleccionados.length === 0) {
+    mostrarAdvertencia('Sin productos', 'Selecciona al menos un producto');
+    return;
+  }
+  
+  const modal = document.getElementById('modalCliente');
+  const input = document.getElementById('inputCliente');
+  
+  if (modal) {
+    modal.style.display = 'flex';
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+function cerrarModalCliente() {
+  const modal = document.getElementById('modalCliente');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function confirmarPedido() {
+  const input = document.getElementById('inputCliente');
+  if (!input) return;
+  
+  const cliente = input.value.trim();
+  
+  if (!cliente) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu nombre');
+    return;
+  }
+  
+  if (productosSeleccionados.length === 0) {
+    mostrarAdvertencia('Sin productos', 'Selecciona al menos un producto');
+    cerrarModalCliente();
+    return;
+  }
+  
+  // Cerrar modal y mostrar loader
+  cerrarModalCliente();
+  LoaderGlobal.mostrar('Generando pedido...');
+  
+  console.log('Guardando pedido:', { cliente, productos: productosSeleccionados });
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        console.log('Pedido guardado exitosamente:', resultado.pedidoId);
+        mostrarModalPedidoGenerado(cliente, resultado.pedidoId);
+        limpiarSeleccion();
+      } else {
+        throw new Error(resultado.message || 'Error al guardar pedido');
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al guardar el pedido');
+    })
+    .guardarPedido(cliente, productosSeleccionados);
+}
+
+/* ***********************************************
+   11. Modal Pedido Generado - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function mostrarModalPedidoGenerado(cliente, pedidoId) {
+  const modal = document.getElementById('modalPedidoGenerado');
+  const pedidoIdElement = document.getElementById('pedidoIdGenerado');
+  const pedidoClienteElement = document.getElementById('pedidoClienteNombre');
+  const textoWhatsapp = document.getElementById('textoWhatsapp');
+  
+  if (!modal) return;
+  
+  // Establecer información
+  if (pedidoIdElement) pedidoIdElement.textContent = pedidoId;
+  if (pedidoClienteElement) pedidoClienteElement.textContent = cliente;
+  
+  // Generar texto WhatsApp
+  const texto = generarTextoWhatsApp();
+  if (textoWhatsapp) textoWhatsapp.value = texto;
+  
+  // Mostrar modal
+  modal.style.display = 'flex';
+  
+  mostrarExito('¡Pedido registrado!', `Pedido ${pedidoId} guardado exitosamente`);
+}
+
+function cerrarModalPedidoGenerado() {
+  const modal = document.getElementById('modalPedidoGenerado');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+/* ***********************************************
+   12. Generar Texto WhatsApp - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function generarTextoWhatsApp() {
+  let texto = '';
+  let total = 0;
+  
+  productosSeleccionados.forEach(prod => {
+    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} S/${prod.precio.toFixed(2)}\n`;
+    total += prod.precio;
+  });
+  
+  texto += `*Total: S/${total.toFixed(2)}*`;
+  
+  return texto;
+}
+
+/* ***********************************************
+   13. Copiar Texto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function copiarTexto() {
+  const textoWhatsapp = document.getElementById('textoWhatsapp');
+  
+  if (!textoWhatsapp) {
+    mostrarError('Error', 'No se encontró el texto a copiar');
+    return;
+  }
+  
+  textoWhatsapp.select();
+  textoWhatsapp.setSelectionRange(0, 99999); // Para móviles
+  
+  try {
+    document.execCommand('copy');
+    mostrarExito('¡Copiado!', 'Texto copiado al portapapeles');
+  } catch (error) {
+    console.error('Error al copiar:', error);
+    mostrarError('Error', 'No se pudo copiar el texto');
+  }
+}
+
+/* ***********************************************
+   14. Limpiar Selección - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function limpiarSeleccion() {
+  // Limpiar array
+  productosSeleccionados = [];
+  
+  // Remover clase selected de todas las cards
+  const cards = document.querySelectorAll('.producto-card');
+  cards.forEach(card => card.classList.remove('selected'));
+  
+  // Actualizar total
+  actualizarTotal();
+  
+  console.log('Selección limpiada');
+}
+
+/* ***********************************************
+   15. Vista Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function mostrarVistaPedidos() {
+  const vistaProductos = document.getElementById('vistaProductos');
+  const vistaPedidos = document.getElementById('vistaPedidos');
+  
+  if (vistaProductos) vistaProductos.style.display = 'none';
+  if (vistaPedidos) vistaPedidos.style.display = 'block';
+  
+  vistaActual = 'pedidos';
+  cargarPedidos();
+}
+
+function volverHome() {
+  const vistaProductos = document.getElementById('vistaProductos');
+  const vistaPedidos = document.getElementById('vistaPedidos');
+  
+  if (vistaProductos) vistaProductos.style.display = 'block';
+  if (vistaPedidos) vistaPedidos.style.display = 'none';
+  
+  vistaActual = 'productos';
+  console.log('Volviendo a vista de productos');
+}
+
+/* ***********************************************
+   16. Cargar Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function cargarPedidos() {
+  const listaPedidos = document.getElementById('listaPedidos');
+  
+  if (!listaPedidos) {
+    console.error('Contenedor de pedidos no encontrado');
+    return;
+  }
+  
+  // Mostrar loader
+  listaPedidos.innerHTML = `
+    <div class="loader-container">
+      <div class="loader"></div>
+      <p>Cargando pedidos...</p>
+    </div>
+  `;
+  
+  console.log('Cargando pedidos desde el servidor...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      console.log('Pedidos recibidos:', resultado);
+      
+      if (resultado.success) {
+        pedidosData = resultado.data;
+        console.log(`${pedidosData.length} pedidos cargados`);
+        renderizarPedidos();
+      } else {
+        throw new Error(resultado.message || 'Error al cargar pedidos');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error al cargar pedidos:', error);
+      listaPedidos.innerHTML = '<p class="text-center">Error al cargar pedidos</p>';
+      manejarError(error, 'al cargar pedidos');
+    })
+    .getPedidos();
+}
+
+/* ***********************************************
+   17. Renderizar Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function renderizarPedidos() {
+  const listaPedidos = document.getElementById('listaPedidos');
+  
+  if (!listaPedidos) {
+    console.error('Contenedor de pedidos no encontrado');
+    return;
+  }
+  
+  listaPedidos.innerHTML = '';
+  
+  if (pedidosData.length === 0) {
+    listaPedidos.innerHTML = '<p class="text-center">No hay pedidos registrados</p>';
+    return;
+  }
+  
+  pedidosData.forEach(pedido => {
+    const card = crearCardPedido(pedido);
+    listaPedidos.appendChild(card);
+  });
+  
+  console.log('Pedidos renderizados');
+}
+
+/* ***********************************************
+   18. Crear Card de Pedido - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function crearCardPedido(pedido) {
+  const card = document.createElement('div');
+  card.className = 'pedido-item fade-in';
+  
+  // Generar lista de productos
+  let productosHTML = '';
+  pedido.productos.forEach(prod => {
+    productosHTML += `
+      <div class="pedido-producto-item">
+        <div class="pedido-producto-info">
+          <div class="pedido-producto-nombre">${prod.producto}</div>
+          <div class="pedido-producto-detalles">${prod.empaque} • ${prod.size}</div>
+        </div>
+        <div class="pedido-producto-precio">S/ ${parseFloat(prod.precio).toFixed(2)}</div>
+      </div>
+    `;
+  });
+  
+  card.innerHTML = `
+    <div class="pedido-header-info">
+      <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+      <div class="pedido-meta">
+        <div class="pedido-id-badge">${pedido.pedidoId}</div>
+        <div class="pedido-fecha">${pedido.fecha}</div>
+      </div>
+    </div>
+    
+    <div class="pedido-productos-lista">
+      ${productosHTML}
+    </div>
+    
+    <div class="pedido-total-section">
+      <span class="pedido-total-label">Total:</span>
+      <span class="pedido-total-monto">S/ ${pedido.total.toFixed(2)}</span>
+    </div>
+  `;
+  
+  return card;
+}
+
+/* ***********************************************
+   19. Cerrar Modals al Click en Overlay - scripts.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) {
+    // Cerrar el modal padre
+    const modal = e.target.parentElement;
+    if (modal && modal.classList.contains('modal')) {
+      modal.style.display = 'none';
+    }
+  }
+});
+
+/* ***********************************************
+   20. Log de Estado - scripts.html - V1.01-SV01
+   *********************************************** */
+
+console.log('Scripts cargados - Bebidas a Pedido V1.01');
+</script>
+
+
+// ============================================
+// ARCHIVO 6/7: style.html
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/style.html
+// ============================================
+
+<style>
+/*
+***********************************************
+Bebidas a Pedido - style.html - V1.01
+22/12/2024 - 10:45
+***********************************************
+*/
+
+/* ***********************************************
+   01. Reset y Variables - style.html - V1.01-SV01
+   *********************************************** */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Colores Principales */
+  --color-primary: #D4AF37;        /* Dorado */
+  --color-primary-dark: #B8941F;   /* Dorado oscuro */
+  --color-secondary: #1a1a1a;      /* Negro */
+  --color-accent: #2c2c2c;         /* Gris oscuro */
+  --color-background: #0f0f0f;     /* Negro profundo */
+  --color-surface: #1f1f1f;        /* Gris muy oscuro */
+  --color-text: #ffffff;           /* Blanco */
+  --color-text-muted: #b0b0b0;     /* Gris claro */
+  --color-success: #4CAF50;        /* Verde */
+  --color-error: #f44336;          /* Rojo */
+  --color-warning: #ff9800;        /* Naranja */
+  
+  /* Espaciado Base */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-xxl: 3rem;     /* 48px */
+  
+  /* Bordes */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  /* Sombras */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5);
+  
+  /* Transiciones */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+}
+
+/* ***********************************************
+   02. Estilos Base - style.html - V1.01-SV01
+   *********************************************** */
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ***********************************************
+   03. Header Principal - style.html - V1.01-SV01
+   *********************************************** */
+
+.main-header {
+  background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-accent) 100%);
+  border-bottom: 2px solid var(--color-primary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.logo-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(212, 175, 55, 0.3));
+}
+
+.app-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.btn-admin {
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-size: 1.2rem;
+}
+
+.btn-admin:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.admin-icon {
+  display: block;
+}
+
+/* ***********************************************
+   04. Contenedor Principal - style.html - V1.01-SV01
+   *********************************************** */
+
+.main-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  min-height: calc(100vh - 80px);
+}
+
+/* ***********************************************
+   05. Loader - style.html - V1.01-SV01
+   *********************************************** */
+
+.loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xxl);
+  gap: var(--spacing-md);
+}
+
+.loader {
+  border: 4px solid var(--color-accent);
+  border-top: 4px solid var(--color-primary);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loader-container p {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+/* ***********************************************
+   06. Grid de Productos - style.html - V1.01-SV01
+   *********************************************** */
+
+.productos-grid {
+  display: grid;
+  gap: var(--spacing-md);
+  padding-bottom: 120px; /* Espacio para footer fijo */
+}
+
+/* Responsividad Optimizada */
+/* Móvil: 1 columna */
+@media (max-width: 767px) {
+  .productos-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+  
+  .main-container {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* Tablet: 2 columnas */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .productos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+  }
+}
+
+/* Desktop/Laptop: 3-4 columnas con máxima densidad */
+@media (min-width: 1024px) {
+  .productos-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+  }
+  
+  .main-container {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (min-width: 1400px) {
+  .productos-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ***********************************************
+   07. Card de Producto - style.html - V1.01-SV01
+   *********************************************** */
+
+.producto-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.producto-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.producto-card.selected {
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-surface) 0%, rgba(212, 175, 55, 0.1) 100%);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}
+
+.producto-card.selected::before {
+  content: '✓';
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.producto-nombre {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-sm);
+  padding-right: 35px; /* Espacio para el check */
+}
+
+.producto-detalles {
+  display: flex;
+  gap: var(--spacing-sm);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.producto-detalle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.producto-detalle::before {
+  content: '•';
+  color: var(--color-primary);
+}
+
+.producto-detalle:first-child::before {
+  content: '';
+}
+
+.producto-precio {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-top: var(--spacing-sm);
+}
+
+/* Densidad reducida en móvil */
+@media (max-width: 767px) {
+  .producto-card {
+    padding: var(--spacing-md);
+  }
+}
+
+/* Máxima densidad en desktop */
+@media (min-width: 1024px) {
+  .producto-card {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  .producto-nombre {
+    font-size: 1rem;
+  }
+  
+  .producto-detalles {
+    font-size: 0.85rem;
+  }
+  
+  .producto-precio {
+    font-size: 1.2rem;
+  }
+}
+
+/* ***********************************************
+   08. Footer de Pedido - style.html - V1.01-SV01
+   *********************************************** */
+
+.footer-pedido {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent 0%, var(--color-secondary) 20%);
+  backdrop-filter: blur(10px);
+  border-top: 2px solid var(--color-primary);
+  padding: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  z-index: 90;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.total-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.total-label {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.total-amount {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* ***********************************************
+   09. Botones - style.html - V1.01-SV01
+   *********************************************** */
+
+.btn-primary,
+.btn-secondary,
+.btn-copy {
+  padding: var(--spacing-md) var(--spacing-xl);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:disabled {
+  background-color: var(--color-accent);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-accent);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-accent);
+  border-color: var(--color-primary);
+}
+
+.btn-copy {
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+
+.btn-copy:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+}
+
+.copy-icon {
+  font-size: 1.2rem;
+}
+
+/* ***********************************************
+   10. Modals - style.html - V1.01-SV01
+   *********************************************** */
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  position: relative;
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease;
+}
+
+.modal-small {
+  max-width: 400px;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-accent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+}
+
+.modal-body {
+  padding: var(--spacing-lg);
+}
+
+.modal-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-accent);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+}
+
+/* ***********************************************
+   11. Formularios - style.html - V1.01-SV01
+   *********************************************** */
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: var(--spacing-md);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  font-size: 1rem;
+  transition: all var(--transition-normal);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* ***********************************************
+   12. Sección WhatsApp - style.html - V1.01-SV01
+   *********************************************** */
+
+.pedido-info {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.pedido-info p {
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text-muted);
+}
+
+.pedido-info p:last-child {
+  margin-bottom: 0;
+}
+
+.pedido-info strong {
+  color: var(--color-primary);
+}
+
+.pedido-id,
+.pedido-cliente {
+  font-size: 0.95rem;
+}
+
+.whatsapp-section {
+  margin-top: var(--spacing-lg);
+}
+
+.whatsapp-label {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+}
+
+.whatsapp-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: var(--spacing-md);
+  background-color: var(--color-background);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.whatsapp-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* ***********************************************
+   13. Vista Pedidos Admin - style.html - V1.01-SV01
+   *********************************************** */
+
+.pedidos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.pedidos-header h2 {
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.btn-home {
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.btn-home:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.pedido-item {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.pedido-header-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-accent);
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.pedido-cliente-nombre {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.pedido-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.pedido-id-badge {
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pedido-fecha {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.pedido-productos-lista {
+  margin: var(--spacing-md) 0;
+}
+
+.pedido-producto-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px dashed var(--color-accent);
+}
+
+.pedido-producto-item:last-child {
+  border-bottom: none;
+}
+
+.pedido-producto-info {
+  flex: 1;
+}
+
+.pedido-producto-nombre {
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.pedido-producto-detalles {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin-top: var(--spacing-xs);
+}
+
+.pedido-producto-precio {
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.pedido-total-section {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 2px solid var(--color-primary);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.pedido-total-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.pedido-total-monto {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* ***********************************************
+   14. Utilidades - style.html - V1.01-SV01
+   *********************************************** */
+
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: var(--spacing-sm); }
+.mt-2 { margin-top: var(--spacing-md); }
+.mt-3 { margin-top: var(--spacing-lg); }
+
+.mb-1 { margin-bottom: var(--spacing-sm); }
+.mb-2 { margin-bottom: var(--spacing-md); }
+.mb-3 { margin-bottom: var(--spacing-lg); }
+
+.hidden {
+  display: none !important;
+}
+
+/* ***********************************************
+   15. Scrollbar Personalizada - style.html - V1.01-SV01
+   *********************************************** */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: var(--border-radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ***********************************************
+   16. Animaciones de Entrada - style.html - V1.01-SV01
+   *********************************************** */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+/* ***********************************************
+   17. Responsividad Footer - style.html - V1.01-SV01
+   *********************************************** */
+
+@media (max-width: 767px) {
+  .footer-pedido {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .total-section {
+    text-align: center;
+  }
+  
+  .btn-primary {
+    width: 100%;
+  }
+  
+  .total-amount {
+    font-size: 1.5rem;
+  }
+}
+
+</style>
+
+
+// ============================================
+// ARCHIVO 7/7: testall.gs
+// URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/testall.gs
+// ============================================
+
+/*
+***********************************************
+Bebidas a Pedido - testall.gs - V1.01
+22/12/2024 - 10:35
+***********************************************
+*/
+
+// ***********************************************
+// 01. Función Principal de Testing - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testAll() {
+  console.log('='.repeat(60));
+  console.log('INICIANDO BATERÍA COMPLETA DE PRUEBAS - BEBIDAS A PEDIDO');
+  console.log('='.repeat(60));
+  console.log('');
+  
+  const resultados = {
+    total: 0,
+    exitosos: 0,
+    fallidos: 0,
+    tests: []
+  };
+  
+  // Ejecutar todas las pruebas
+  ejecutarTest(resultados, 'Autorización Inicial', testAutorizacion);
+  ejecutarTest(resultados, 'Conexión al Sheet', testConexionSheet);
+  ejecutarTest(resultados, 'Lectura de Licores', testLeerLicores);
+  ejecutarTest(resultados, 'Verificación de Admin', testVerificarAdmin);
+  ejecutarTest(resultados, 'Generación de ID Pedido', testGenerarIdPedido);
+  ejecutarTest(resultados, 'Guardado de Pedido', testGuardarPedido);
+  ejecutarTest(resultados, 'Lectura de Pedidos', testLeerPedidos);
+  
+  // Mostrar resumen
+  console.log('');
+  console.log('='.repeat(60));
+  console.log('RESUMEN DE PRUEBAS');
+  console.log('='.repeat(60));
+  console.log(`Total de pruebas: ${resultados.total}`);
+  console.log(`Exitosas: ${resultados.exitosos} ✓`);
+  console.log(`Fallidas: ${resultados.fallidos} ✗`);
+  console.log('');
+  
+  resultados.tests.forEach(test => {
+    const icono = test.exito ? '✓' : '✗';
+    console.log(`${icono} ${test.nombre}: ${test.mensaje}`);
+  });
+  
+  console.log('');
+  console.log('='.repeat(60));
+  
+  if (resultados.fallidos === 0) {
+    console.log('¡TODAS LAS PRUEBAS PASARON EXITOSAMENTE! 🎉');
+  } else {
+    console.log('ALGUNAS PRUEBAS FALLARON. REVISA LOS DETALLES ARRIBA. ⚠️');
+  }
+  console.log('='.repeat(60));
+  
+  return resultados;
+}
+
+// ***********************************************
+// 02. Función Ejecutar Test - testall.gs - V1.01-SV01
+// ***********************************************
+
+function ejecutarTest(resultados, nombreTest, funcionTest) {
+  resultados.total++;
+  console.log(`\n▶ Ejecutando: ${nombreTest}...`);
+  console.log('-'.repeat(60));
+  
+  try {
+    const resultado = funcionTest();
+    
+    if (resultado.success) {
+      resultados.exitosos++;
+      resultados.tests.push({
+        nombre: nombreTest,
+        exito: true,
+        mensaje: resultado.mensaje || 'OK'
+      });
+      console.log(`✓ ${nombreTest}: EXITOSO`);
+      if (resultado.detalles) {
+        console.log(`  Detalles: ${resultado.detalles}`);
+      }
+    } else {
+      resultados.fallidos++;
+      resultados.tests.push({
+        nombre: nombreTest,
+        exito: false,
+        mensaje: resultado.mensaje || 'Error desconocido'
+      });
+      console.log(`✗ ${nombreTest}: FALLIDO`);
+      console.log(`  Error: ${resultado.mensaje}`);
+    }
+  } catch (error) {
+    resultados.fallidos++;
+    resultados.tests.push({
+      nombre: nombreTest,
+      exito: false,
+      mensaje: error.toString()
+    });
+    console.log(`✗ ${nombreTest}: EXCEPCIÓN`);
+    console.log(`  Error: ${error.toString()}`);
+  }
+}
+
+// ***********************************************
+// 03. Test: Autorización Inicial - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testAutorizacion() {
+  try {
+    // Forzar autorización accediendo a servicios que requieren permisos
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const nombre = ss.getName();
+    
+    return {
+      success: true,
+      mensaje: 'Autorización concedida',
+      detalles: `Sheet: "${nombre}"`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error de autorización: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 04. Test: Conexión al Sheet - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testConexionSheet() {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const hojas = ss.getSheets().map(h => h.getName());
+    
+    // Verificar que existan las hojas necesarias
+    const hojasRequeridas = [SHEET_LICORES, SHEET_PEDIDOS, SHEET_ADMIN];
+    const hojasFaltantes = hojasRequeridas.filter(h => !hojas.includes(h));
+    
+    if (hojasFaltantes.length > 0) {
+      return {
+        success: false,
+        mensaje: `Faltan hojas: ${hojasFaltantes.join(', ')}`
+      };
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Conexión exitosa',
+      detalles: `Hojas encontradas: ${hojas.join(', ')}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error de conexión: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 05. Test: Lectura de Licores - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testLeerLicores() {
+  try {
+    const resultado = getLicores();
+    
+    if (!resultado.success) {
+      return {
+        success: false,
+        mensaje: resultado.message
+      };
+    }
+    
+    const licores = resultado.data;
+    
+    if (!Array.isArray(licores)) {
+      return {
+        success: false,
+        mensaje: 'El resultado no es un array'
+      };
+    }
+    
+    if (licores.length === 0) {
+      return {
+        success: false,
+        mensaje: 'No se encontraron licores en la hoja'
+      };
+    }
+    
+    // Verificar estructura del primer licor
+    const primer = licores[0];
+    const camposRequeridos = ['code', 'producto', 'empaque', 'size', 'precio'];
+    const camposFaltantes = camposRequeridos.filter(campo => !(campo in primer));
+    
+    if (camposFaltantes.length > 0) {
+      return {
+        success: false,
+        mensaje: `Faltan campos: ${camposFaltantes.join(', ')}`
+      };
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Lectura exitosa',
+      detalles: `${licores.length} licores encontrados. Ejemplo: ${primer.producto}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 06. Test: Verificación de Admin - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testVerificarAdmin() {
+  try {
+    // Obtener el primer usuario admin de la hoja
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_ADMIN);
+    const data = sheet.getDataRange().getValues();
+    
+    if (data.length < 2) {
+      return {
+        success: false,
+        mensaje: 'No hay usuarios en la hoja Admin'
+      };
+    }
+    
+    const usuarioTest = data[1][0]; // Primer usuario
+    
+    // Probar verificación exitosa
+    const resultadoOK = verificarAcceso(usuarioTest);
+    if (!resultadoOK.success) {
+      return {
+        success: false,
+        mensaje: `Verificación fallida para usuario válido: ${usuarioTest}`
+      };
+    }
+    
+    // Probar verificación fallida
+    const resultadoFail = verificarAcceso('usuario_inexistente_12345');
+    if (resultadoFail.success) {
+      return {
+        success: false,
+        mensaje: 'Verificación permitió usuario inválido'
+      };
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Verificación funciona correctamente',
+      detalles: `Usuario válido probado: ${usuarioTest}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 07. Test: Generación de ID Pedido - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testGenerarIdPedido() {
+  try {
+    const pedidoId = generarIdPedido();
+    
+    // Verificar formato PED-YYYYMMDD-###
+    const patron = /^PED-\d{8}-\d{3}$/;
+    
+    if (!patron.test(pedidoId)) {
+      return {
+        success: false,
+        mensaje: `Formato incorrecto: ${pedidoId}. Esperado: PED-YYYYMMDD-###`
+      };
+    }
+    
+    // Verificar que la fecha sea de hoy
+    const hoy = Utilities.formatDate(new Date(), 'America/Lima', 'yyyyMMdd');
+    if (!pedidoId.includes(hoy)) {
+      return {
+        success: false,
+        mensaje: `La fecha no corresponde al día actual. ID: ${pedidoId}`
+      };
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Generación exitosa',
+      detalles: `ID generado: ${pedidoId}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 08. Test: Guardado de Pedido - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testGuardarPedido() {
+  try {
+    // Crear pedido de prueba
+    const productosTest = [
+      {
+        code: 'TEST001',
+        producto: 'Licor Test 1',
+        empaque: 'Botella',
+        size: '750ml',
+        precio: 50.00
+      },
+      {
+        code: 'TEST002',
+        producto: 'Licor Test 2',
+        empaque: 'Caja',
+        size: '1L',
+        precio: 75.00
+      }
+    ];
+    
+    const clienteTest = 'Cliente Test - ' + new Date().getTime();
+    
+    // Guardar pedido
+    const resultado = guardarPedido(clienteTest, productosTest);
+    
+    if (!resultado.success) {
+      return {
+        success: false,
+        mensaje: resultado.message
+      };
+    }
+    
+    // Verificar que se haya guardado
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
+    const data = sheet.getDataRange().getValues();
+    
+    // Buscar el pedido recién creado
+    const pedidoEncontrado = data.slice(1).some(row => 
+      row[0] === clienteTest && row[7] === resultado.pedidoId
+    );
+    
+    if (!pedidoEncontrado) {
+      return {
+        success: false,
+        mensaje: 'El pedido no se encontró en la hoja después de guardarlo'
+      };
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Guardado exitoso',
+      detalles: `Pedido: ${resultado.pedidoId}, Cliente: ${clienteTest}, Productos: ${productosTest.length}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 09. Test: Lectura de Pedidos - testall.gs - V1.01-SV01
+// ***********************************************
+
+function testLeerPedidos() {
+  try {
+    const resultado = getPedidos();
+    
+    if (!resultado.success) {
+      return {
+        success: false,
+        mensaje: resultado.message
+      };
+    }
+    
+    const pedidos = resultado.data;
+    
+    if (!Array.isArray(pedidos)) {
+      return {
+        success: false,
+        mensaje: 'El resultado no es un array'
+      };
+    }
+    
+    // Si hay pedidos, verificar estructura
+    if (pedidos.length > 0) {
+      const primer = pedidos[0];
+      const camposRequeridos = ['pedidoId', 'cliente', 'fecha', 'productos', 'total'];
+      const camposFaltantes = camposRequeridos.filter(campo => !(campo in primer));
+      
+      if (camposFaltantes.length > 0) {
+        return {
+          success: false,
+          mensaje: `Faltan campos: ${camposFaltantes.join(', ')}`
+        };
+      }
+      
+      // Verificar que productos sea un array
+      if (!Array.isArray(primer.productos)) {
+        return {
+          success: false,
+          mensaje: 'El campo productos no es un array'
+        };
+      }
+    }
+    
+    return {
+      success: true,
+      mensaje: 'Lectura exitosa',
+      detalles: `${pedidos.length} pedidos encontrados`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      mensaje: `Error: ${error.toString()}`
+    };
+  }
+}
+
+// ***********************************************
+// 10. Función para Forzar Autorización - testall.gs - V1.01-SV01
+// ***********************************************
+
+function forceAuthorization() {
+  console.log('Forzando autorización de permisos...');
+  console.log('');
+  
+  try {
+    // Acceder a SpreadsheetApp
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    console.log('✓ Acceso a SpreadsheetApp autorizado');
+    
+    // Acceder a propiedades
+    const props = PropertiesService.getScriptProperties();
+    console.log('✓ Acceso a PropertiesService autorizado');
+    
+    // Acceder a UrlFetchApp (si se necesita en el futuro)
+    console.log('✓ Preparado para UrlFetchApp');
+    
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('AUTORIZACIÓN COMPLETADA EXITOSAMENTE');
+    console.log('='.repeat(60));
+    console.log('');
+    console.log('Ahora puedes desplegar la aplicación web.');
+    console.log('Pasos siguientes:');
+    console.log('1. Haz clic en "Implementar" > "Nueva implementación"');
+    console.log('2. Selecciona "Aplicación web"');
+    console.log('3. Ejecutar como: Tu usuario');
+    console.log('4. Quién tiene acceso: Cualquier usuario');
+    console.log('5. Haz clic en "Implementar"');
+    
+    return true;
+  } catch (error) {
+    console.error('✗ Error durante la autorización: ' + error.toString());
+    return false;
+  }
+}
+
+
+// ============================================
+// FIN DEL SOLID CODE
+// Tamaño total: 77,493 caracteres
+// ============================================
