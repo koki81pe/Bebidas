@@ -3,8 +3,8 @@
 <head>
   <!--
   ***********************************************
-  Bebidas a Pedido - home.html - V1.01
-  22/12/2024 - 10:40
+  Bebidas a Pedido - home.html - V1.05
+  23/12/2024 - 16:00
   ***********************************************
   -->
   <meta charset="UTF-8">
@@ -15,7 +15,7 @@
 <body>
 
   <!-- ***********************************************
-       01. Header Principal - home.html - V1.01-SV01
+       01. Header Principal - home.html - V1.02-SV01
        *********************************************** -->
   <header class="main-header">
     <div class="header-content">
@@ -30,12 +30,17 @@
   </header>
 
   <!-- ***********************************************
-       02. Contenedor Principal - home.html - V1.01-SV01
+       02. Contenedor Principal - home.html - V1.02-SV01
        *********************************************** -->
   <main class="main-container" id="mainContainer">
     
     <!-- Vista de Productos (Default) -->
     <div id="vistaProductos" class="vista-productos">
+      
+      <!-- Mensaje de Invitación -->
+      <div class="mensaje-invitacion">
+        <p>👉 Haz clic para seleccionar tus productos</p>
+      </div>
       
       <!-- Loader -->
       <div id="loader" class="loader-container">
@@ -68,7 +73,7 @@
   </main>
 
   <!-- ***********************************************
-       03. Modal Login Admin - home.html - V1.01-SV01
+       03. Modal Login Admin - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalLogin" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -96,7 +101,7 @@
   </div>
 
   <!-- ***********************************************
-       04. Modal Nombre Cliente - home.html - V1.01-SV01
+       04. Modal Nombre y Teléfono Cliente - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalCliente" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -115,6 +120,15 @@
             placeholder="Ingresa tu nombre"
             autocomplete="name">
         </div>
+        <div class="form-group">
+          <label for="inputTelefono">Tu Teléfono / WhatsApp</label>
+          <input 
+            type="tel" 
+            id="inputTelefono" 
+            class="form-input" 
+            placeholder="Ej: 997888530"
+            autocomplete="tel">
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="cerrarModalCliente()">Cancelar</button>
@@ -124,7 +138,7 @@
   </div>
 
   <!-- ***********************************************
-       05. Modal Pedido Generado - home.html - V1.01-SV01
+       05. Modal Pedido Generado - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalPedidoGenerado" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -140,13 +154,13 @@
         </div>
         
         <div class="whatsapp-section">
-          <label class="whatsapp-label">Mensaje para WhatsApp:</label>
+          <label class="whatsapp-label">Copia este mensaje y envíalo a WhatsApp: <strong>997 888 530</strong></label>
           <textarea 
             id="textoWhatsapp" 
             class="whatsapp-textarea" 
             readonly></textarea>
           <button class="btn-copy" onclick="copiarTexto()">
-            <span class="copy-icon">📋</span> Copiar Texto
+            <span class="copy-icon">📋</span> Copiar Mensaje
           </button>
         </div>
       </div>
