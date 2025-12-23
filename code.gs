@@ -1,7 +1,7 @@
 /*
 ***********************************************
-Bebidas a Pedido - code.gs - V1.06
-23/12/2024 - 16:30
+Bebidas a Pedido - code.gs - V1.07-SV02
+23/12/2024 - 17:35
 ***********************************************
 */
 
@@ -52,20 +52,28 @@ function getLicores() {
     const headers = data[0];
     const rows = data.slice(1);
     
-    // Filtrar filas vacías
+    // Filtrar filas vacías y productos sin stock
     const licores = rows
       .filter(row => row[1]) // Filtrar por columna Producto (índice 1)
-      .map(row => ({
-        code: row[0] || '',
-        producto: row[1] || '',
-        empaque: row[2] || '',
-        size: row[3] || '',
-        sugerido: row[4] || 0,
-        saldoInicial: row[5] || 0,  // Columna F - Stock disponible
-        precio: row[6] || 0
-      }));
+      .map(row => {
+        // Calcular SaldoFinal: Saldo Inicial (F) - CantVendida (I)
+        const saldoInicial = parseFloat(row[5]) || 0;  // Columna F (índice 5)
+        const cantVendida = parseFloat(row[8]) || 0;   // Columna I (índice 8)
+        const saldoFinal = saldoInicial - cantVendida;
+        
+        return {
+          code: row[0] || '',
+          producto: row[1] || '',
+          empaque: row[2] || '',
+          size: row[3] || '',
+          sugerido: row[4] || 0,
+          saldoInicial: Math.max(0, saldoFinal),  // Stock disponible real
+          precio: row[6] || 0
+        };
+      })
+      .filter(licor => licor.saldoInicial > 0); // Solo productos con stock disponible
     
-    console.log('Licores obtenidos: ' + licores.length);
+    console.log('Licores obtenidos: ' + licores.length + ' (con stock disponible)');
     return { success: true, data: licores };
     
   } catch (error) {
@@ -389,5 +397,54 @@ function marcarPagado(pedidoId) {
     console.error('Error en marcarPagado: ' + error.toString());
     console.error('Stack trace: ' + error.stack);
     return { success: false, message: 'Error al marcar pedido: ' + error.toString() };
+  }
+}
+
+// ***********************************************
+// 10. Función de Diagnóstico - code.gs - V1.06-SV01
+// ***********************************************
+
+function diagnosticar() {
+  console.log('='.repeat(60));
+  console.log('DIAGNÓSTICO - BEBIDAS A PEDIDO V1.06');
+  console.log('='.repeat(60));
+  
+  try {
+    // Test 1: Conexión al Sheet
+    console.log('\n1. Probando conexión al Sheet...');
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    console.log('✓ Conectado a: ' + ss.getName());
+    
+    // Test 2: Hojas disponibles
+    console.log('\n2. Verificando hojas...');
+    const sheets = ss.getSheets();
+    sheets.forEach(sheet => {
+      console.log('  - ' + sheet.getName());
+    });
+    
+    // Test 3: Lectura de Licores
+    console.log('\n3. Leyendo licores...');
+    const resultado = getLicores();
+    console.log('  Success: ' + resultado.success);
+    if (resultado.success) {
+      console.log('  Productos encontrados: ' + resultado.data.length);
+      if (resultado.data.length > 0) {
+        console.log('  Ejemplo: ' + JSON.stringify(resultado.data[0]));
+      }
+    } else {
+      console.log('  Error: ' + resultado.message);
+    }
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('DIAGNÓSTICO COMPLETO');
+    console.log('='.repeat(60));
+    
+    return { success: true, message: 'Diagnóstico completado' };
+    
+  } catch (error) {
+    console.error('\n✗ ERROR EN DIAGNÓSTICO:');
+    console.error(error.toString());
+    console.error(error.stack);
+    return { success: false, message: error.toString() };
   }
 }
