@@ -1,8 +1,8 @@
 <style>
 /*
 ***********************************************
-Bebidas a Pedido - style.html - V1.08
-23/12/2024 - 18:00
+Bebidas a Pedido - style.html - V1.09
+23/12/2024 - 19:00
 ***********************************************
 */
 
@@ -1254,6 +1254,39 @@ body {
   .imagen-producto-modal {
     max-height: 60vh;
   }
+}
+
+/* ***********************************************
+   30. Botón Ver Foto - style.html - V1.09-SV01
+   *********************************************** */
+
+.btn-ver-foto {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 3;
+  display: inline-block;
+}
+
+.btn-ver-foto:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.05);
+  text-decoration: none;
+}
+
+.btn-ver-foto:active {
+  transform: scale(0.95);
 }
 
 </style>
