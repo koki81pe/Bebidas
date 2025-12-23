@@ -1,32 +1,36 @@
 <script>
 /*
 ***********************************************
-Bebidas a Pedido - scripts.html - V1.01
-22/12/2024 - 10:55
+Bebidas a Pedido - scripts.html - V1.06
+23/12/2024 - 16:30
 ***********************************************
 */
 
 /* ***********************************************
-   01. Variables Globales - scripts.html - V1.01-SV01
+   01. Variables Globales - scripts.html - V1.05-SV01
    *********************************************** */
 
 let licoresData = [];
 let productosSeleccionados = [];
 let pedidosData = [];
 let vistaActual = 'productos'; // 'productos' o 'pedidos'
+let tabActual = 'todos'; // 'todos', 'pendientes' o 'pagados'
+
+// URL base de Google Drive para imágenes
+const DRIVE_IMAGE_BASE = 'https://drive.google.com/thumbnail?id=';
 
 /* ***********************************************
-   02. Inicialización - scripts.html - V1.01-SV01
+   02. Inicialización - scripts.html - V1.05-SV01
    *********************************************** */
 
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Inicializando Bebidas a Pedido...');
+  console.log('Inicializando Bebidas a Pedido V1.05...');
   cargarLicores();
   configurarEventos();
 });
 
 /* ***********************************************
-   03. Configurar Eventos - scripts.html - V1.01-SV01
+   03. Configurar Eventos - scripts.html - V1.02-SV01
    *********************************************** */
 
 function configurarEventos() {
@@ -56,6 +60,16 @@ function configurarEventos() {
   if (inputCliente) {
     inputCliente.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
+        const inputTelefono = document.getElementById('inputTelefono');
+        if (inputTelefono) inputTelefono.focus();
+      }
+    });
+  }
+  
+  const inputTelefono = document.getElementById('inputTelefono');
+  if (inputTelefono) {
+    inputTelefono.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
         confirmarPedido();
       }
     });
@@ -65,7 +79,7 @@ function configurarEventos() {
 }
 
 /* ***********************************************
-   04. Cargar Licores - scripts.html - V1.01-SV01
+   04. Cargar Licores - scripts.html - V1.02-SV01
    *********************************************** */
 
 function cargarLicores() {
@@ -101,7 +115,7 @@ function cargarLicores() {
 }
 
 /* ***********************************************
-   05. Renderizar Licores - scripts.html - V1.01-SV01
+   05. Renderizar Licores - scripts.html - V1.02-SV01
    *********************************************** */
 
 function renderizarLicores() {
@@ -127,7 +141,7 @@ function renderizarLicores() {
 }
 
 /* ***********************************************
-   06. Crear Card de Producto - scripts.html - V1.01-SV01
+   06. Crear Card de Producto - scripts.html - V1.05-SV01
    *********************************************** */
 
 function crearCardProducto(licor, index) {
@@ -135,16 +149,36 @@ function crearCardProducto(licor, index) {
   card.className = 'producto-card';
   card.dataset.index = index;
   
+  // Generar URL de imagen de Google Drive usando el código del producto
+  const imageUrl = obtenerUrlImagen(licor.code);
+  
   card.innerHTML = `
+    <div class="producto-selector">○</div>
+    ${imageUrl ? `<div class="producto-imagen">
+      <img src="${imageUrl}" alt="${licor.producto}" onerror="this.parentElement.style.display='none'">
+    </div>` : ''}
     <div class="producto-nombre">${licor.producto}</div>
     <div class="producto-detalles">
       <span class="producto-detalle">${licor.empaque}</span>
       <span class="producto-detalle">${licor.size}</span>
     </div>
+    <div class="producto-stock">Stock: ${licor.saldoInicial} unidades</div>
     <div class="producto-precio">S/ ${parseFloat(licor.precio).toFixed(2)}</div>
+    <div class="producto-cantidad-control" style="display: none;">
+      <label>Cantidad:</label>
+      <div class="cantidad-input-group">
+        <button class="btn-cantidad" onclick="cambiarCantidad(${index}, -1)">−</button>
+        <input type="number" class="cantidad-input" id="cantidad_${index}" value="1" min="1" max="${licor.saldoInicial}" readonly>
+        <button class="btn-cantidad" onclick="cambiarCantidad(${index}, 1)">+</button>
+      </div>
+    </div>
   `;
   
-  card.addEventListener('click', function() {
+  card.addEventListener('click', function(e) {
+    // Evitar toggle si se hace clic en los botones de cantidad
+    if (e.target.classList.contains('btn-cantidad') || e.target.classList.contains('cantidad-input')) {
+      return;
+    }
     toggleProducto(index);
   });
   
@@ -152,7 +186,44 @@ function crearCardProducto(licor, index) {
 }
 
 /* ***********************************************
-   07. Toggle Producto - scripts.html - V1.01-SV01
+   06b. Obtener URL de Imagen - scripts.html - V1.06-SV02
+   *********************************************** */
+
+function obtenerUrlImagen(code) {
+  // Mapeo de códigos (con guiones) a IDs de Google Drive
+  // Los archivos se llaman: CR12-B-750.jpg (igual que el código)
+  // Para obtener cada ID: Click derecho en Drive → Compartir → Copiar enlace
+  // El ID está en: https://drive.google.com/file/d/[ID_AQUI]/view
+  
+  const imageMap = {
+    // Códigos reales del Excel (Columna A de Licores)
+    'CR12-B-750': '',        // Chivas Regal 12 años
+    'CR18-C-750': '',        // Chivas Regal 18 años
+    'SS-B-750': '',          // Something Special
+    'SSSS-L-750': '',        // Something Special (Lata)
+    'SS15-B-750': '',        // Something Special 15 años
+    'JWBL-B-750': '',        // Johnnie Walker Black Label (Botella)
+    'JWBL-L-750': '',        // Johnnie Walker Black Label (Lata)
+    'JWBL-C-1L': '',         // Johnnie Walker Black Label (Caja 1L)
+    'Ball-B-750': '',        // Ballantines
+    'BallGS12-B-750': '',    // Ballantines Gold Seal 12 años
+    'BallSR12-B-1L': '',     // Ballantines Special Reserve 12 años
+    'OPS-B-750': '',         // Old Parr Superior
+    'OPG-B-750': ''          // Old Parr Grand (probablemente)
+  };
+  
+  const fileId = imageMap[code];
+  if (!fileId || fileId === '') {
+    console.log(`Imagen pendiente para: ${code}`);
+    return null;
+  }
+  
+  // Usar thumbnail API de Google Drive
+  return `${DRIVE_IMAGE_BASE}${fileId}&sz=w300`;
+}
+
+/* ***********************************************
+   07. Toggle Producto - scripts.html - V1.02-SV01
    *********************************************** */
 
 function toggleProducto(index) {
@@ -161,6 +232,10 @@ function toggleProducto(index) {
   
   if (!card) return;
   
+  const selector = card.querySelector('.producto-selector');
+  const cantidadControl = card.querySelector('.producto-cantidad-control');
+  const cantidadInput = document.getElementById(`cantidad_${index}`);
+  
   // Verificar si ya está seleccionado
   const indexSeleccionado = productosSeleccionados.findIndex(p => p.code === licor.code);
   
@@ -168,23 +243,58 @@ function toggleProducto(index) {
     // Deseleccionar
     productosSeleccionados.splice(indexSeleccionado, 1);
     card.classList.remove('selected');
+    if (selector) selector.textContent = '○';
+    if (cantidadControl) cantidadControl.style.display = 'none';
+    if (cantidadInput) cantidadInput.value = 1;
   } else {
     // Seleccionar
+    const cantidad = cantidadInput ? parseInt(cantidadInput.value) || 1 : 1;
     productosSeleccionados.push({
       code: licor.code,
       producto: licor.producto,
       empaque: licor.empaque,
       size: licor.size,
-      precio: parseFloat(licor.precio)
+      precio: parseFloat(licor.precio),
+      cantidad: cantidad,
+      index: index
     });
     card.classList.add('selected');
+    if (selector) selector.textContent = '●';
+    if (cantidadControl) cantidadControl.style.display = 'flex';
   }
   
   actualizarTotal();
 }
 
 /* ***********************************************
-   08. Actualizar Total - scripts.html - V1.01-SV01
+   08. Cambiar Cantidad - scripts.html - V1.02-SV01
+   *********************************************** */
+
+function cambiarCantidad(index, cambio) {
+  const licor = licoresData[index];
+  const cantidadInput = document.getElementById(`cantidad_${index}`);
+  
+  if (!cantidadInput) return;
+  
+  let nuevaCantidad = parseInt(cantidadInput.value) + cambio;
+  
+  // Validar límites
+  const max = licor.saldoInicial;
+  if (nuevaCantidad < 1) nuevaCantidad = 1;
+  if (nuevaCantidad > max) nuevaCantidad = max;
+  
+  cantidadInput.value = nuevaCantidad;
+  
+  // Actualizar en el array de seleccionados
+  const productoSeleccionado = productosSeleccionados.find(p => p.code === licor.code);
+  if (productoSeleccionado) {
+    productoSeleccionado.cantidad = nuevaCantidad;
+    actualizarTotal();
+  }
+}
+
+/* ***********************************************
+   09. Actualizar Total - scripts.html - V1.02-SV01
    *********************************************** */
 
 function actualizarTotal() {
@@ -192,7 +302,7 @@ function actualizarTotal() {
   const btnHacerPedido = document.getElementById('btnHacerPedido');
   const footerPedido = document.getElementById('footerPedido');
   
-  const total = productosSeleccionados.reduce((sum, prod) => sum + prod.precio, 0);
+  const total = productosSeleccionados.reduce((sum, prod) => sum + (prod.precio * prod.cantidad), 0);
   
   if (totalAmount) {
     totalAmount.textContent = `S/ ${total.toFixed(2)}`;
@@ -212,7 +322,7 @@ function actualizarTotal() {
 }
 
 /* ***********************************************
-   09. Modal Login Admin - scripts.html - V1.01-SV01
+   10. Modal Login Admin - scripts.html - V1.02-SV01
    *********************************************** */
 
 function abrirModalLogin() {
@@ -270,7 +380,7 @@ function verificarAcceso() {
 }
 
 /* ***********************************************
-   10. Modal Nombre Cliente - scripts.html - V1.01-SV01
+   11. Modal Nombre y Teléfono Cliente - scripts.html - V1.02-SV01
    *********************************************** */
 
 function abrirModalCliente() {
@@ -280,13 +390,17 @@ function abrirModalCliente() {
   }
   
   const modal = document.getElementById('modalCliente');
-  const input = document.getElementById('inputCliente');
+  const inputCliente = document.getElementById('inputCliente');
+  const inputTelefono = document.getElementById('inputTelefono');
   
   if (modal) {
     modal.style.display = 'flex';
-    if (input) {
-      input.value = '';
-      setTimeout(() => input.focus(), 100);
+    if (inputCliente) {
+      inputCliente.value = '';
+      setTimeout(() => inputCliente.focus(), 100);
+    }
+    if (inputTelefono) {
+      inputTelefono.value = '';
     }
   }
 }
@@ -299,13 +413,23 @@ function cerrarModalCliente() {
 }
 
 function confirmarPedido() {
-  const input = document.getElementById('inputCliente');
-  if (!input) return;
+  const inputCliente = document.getElementById('inputCliente');
+  const inputTelefono = document.getElementById('inputTelefono');
   
-  const cliente = input.value.trim();
+  if (!inputCliente || !inputTelefono) return;
+  
+  const cliente = inputCliente.value.trim();
+  const telefono = inputTelefono.value.trim();
   
   if (!cliente) {
     mostrarAdvertencia('Campo vacío', 'Ingresa tu nombre');
+    inputCliente.focus();
+    return;
+  }
+  
+  if (!telefono) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu teléfono');
+    inputTelefono.focus();
     return;
   }
   
@@ -319,7 +443,7 @@ function confirmarPedido() {
   cerrarModalCliente();
   LoaderGlobal.mostrar('Generando pedido...');
   
-  console.log('Guardando pedido:', { cliente, productos: productosSeleccionados });
+  console.log('Guardando pedido:', { cliente, telefono, productos: productosSeleccionados });
   
   google.script.run
     .withSuccessHandler(function(resultado) {
@@ -337,11 +461,11 @@ function confirmarPedido() {
       LoaderGlobal.ocultar();
       manejarError(error, 'al guardar el pedido');
     })
-    .guardarPedido(cliente, productosSeleccionados);
+    .guardarPedido(cliente, telefono, productosSeleccionados);
 }
 
 /* ***********************************************
-   11. Modal Pedido Generado - scripts.html - V1.01-SV01
+   12. Modal Pedido Generado - scripts.html - V1.02-SV01
    *********************************************** */
 
 function mostrarModalPedidoGenerado(cliente, pedidoId) {
@@ -374,7 +498,7 @@ function cerrarModalPedidoGenerado() {
 }
 
 /* ***********************************************
-   12. Generar Texto WhatsApp - scripts.html - V1.01-SV01
+   13. Generar Texto WhatsApp - scripts.html - V1.02-SV01
    *********************************************** */
 
 function generarTextoWhatsApp() {
@@ -382,8 +506,9 @@ function generarTextoWhatsApp() {
   let total = 0;
   
   productosSeleccionados.forEach(prod => {
-    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} S/${prod.precio.toFixed(2)}\n`;
-    total += prod.precio;
+    const subtotal = prod.precio * prod.cantidad;
+    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} x${prod.cantidad} S/${subtotal.toFixed(2)}\n`;
+    total += subtotal;
   });
   
   texto += `*Total: S/${total.toFixed(2)}*`;
@@ -392,7 +517,7 @@ function generarTextoWhatsApp() {
 }
 
 /* ***********************************************
-   13. Copiar Texto - scripts.html - V1.01-SV01
+   14. Copiar Texto - scripts.html - V1.02-SV01
    *********************************************** */
 
 function copiarTexto() {
@@ -416,16 +541,22 @@ function copiarTexto() {
 }
 
 /* ***********************************************
-   14. Limpiar Selección - scripts.html - V1.01-SV01
+   15. Limpiar Selección - scripts.html - V1.02-SV01
    *********************************************** */
 
 function limpiarSeleccion() {
   // Limpiar array
   productosSeleccionados = [];
   
-  // Remover clase selected de todas las cards
+  // Remover clase selected de todas las cards y resetear selectores
   const cards = document.querySelectorAll('.producto-card');
-  cards.forEach(card => card.classList.remove('selected'));
+  cards.forEach(card => {
+    card.classList.remove('selected');
+    const selector = card.querySelector('.producto-selector');
+    const cantidadControl = card.querySelector('.producto-cantidad-control');
+    if (selector) selector.textContent = '○';
+    if (cantidadControl) cantidadControl.style.display = 'none';
+  });
   
   // Actualizar total
   actualizarTotal();
@@ -434,7 +565,7 @@ function limpiarSeleccion() {
 }
 
 /* ***********************************************
-   15. Vista Pedidos - scripts.html - V1.01-SV01
+   16. Vista Pedidos - scripts.html - V1.05-SV01
    *********************************************** */
 
 function mostrarVistaPedidos() {
@@ -445,6 +576,7 @@ function mostrarVistaPedidos() {
   if (vistaPedidos) vistaPedidos.style.display = 'block';
   
   vistaActual = 'pedidos';
+  tabActual = 'todos'; // Resetear a pestaña "Todos" al entrar
   cargarPedidos();
 }
 
@@ -460,7 +592,7 @@ function volverHome() {
 }
 
 /* ***********************************************
-   16. Cargar Pedidos - scripts.html - V1.01-SV01
+   17. Cargar Pedidos - scripts.html - V1.02-SV01
    *********************************************** */
 
 function cargarPedidos() {
@@ -502,7 +634,7 @@ function cargarPedidos() {
 }
 
 /* ***********************************************
-   17. Renderizar Pedidos - scripts.html - V1.01-SV01
+   18. Renderizar Pedidos - scripts.html - V1.04-SV01
    *********************************************** */
 
 function renderizarPedidos() {
@@ -520,21 +652,43 @@ function renderizarPedidos() {
     return;
   }
   
-  pedidosData.forEach(pedido => {
+  // Filtrar pedidos según la pestaña activa
+  let pedidosFiltrados = pedidosData;
+  
+  if (tabActual === 'pendientes') {
+    pedidosFiltrados = pedidosData.filter(p => p.estado === 'Pendiente');
+  } else if (tabActual === 'pagados') {
+    pedidosFiltrados = pedidosData.filter(p => p.estado === 'Pagado');
+  }
+  
+  if (pedidosFiltrados.length === 0) {
+    const mensajes = {
+      'todos': 'No hay pedidos registrados',
+      'pendientes': 'No hay pedidos pendientes',
+      'pagados': 'No hay pedidos pagados'
+    };
+    listaPedidos.innerHTML = `<p class="text-center">${mensajes[tabActual]}</p>`;
+    return;
+  }
+  
+  pedidosFiltrados.forEach(pedido => {
     const card = crearCardPedido(pedido);
     listaPedidos.appendChild(card);
   });
   
-  console.log('Pedidos renderizados');
+  console.log(`Pedidos renderizados (${tabActual}): ${pedidosFiltrados.length}`);
 }
 
 /* ***********************************************
-   18. Crear Card de Pedido - scripts.html - V1.01-SV01
+   19. Crear Card de Pedido - scripts.html - V1.02-SV01
    *********************************************** */
 
 function crearCardPedido(pedido) {
   const card = document.createElement('div');
-  card.className = 'pedido-item fade-in';
+  card.className = `pedido-item fade-in ${pedido.estado === 'Pagado' ? 'pedido-pagado' : ''}`;
+  
+  // Badge de estado
+  const badgeClase = pedido.estado === 'Pagado' ? 'badge-pagado' : 'badge-pendiente';
   
   // Generar lista de productos
   let productosHTML = '';
@@ -542,18 +696,26 @@ function crearCardPedido(pedido) {
     productosHTML += `
       <div class="pedido-producto-item">
         <div class="pedido-producto-info">
-          <div class="pedido-producto-nombre">${prod.producto}</div>
+          <div class="pedido-producto-nombre">${prod.producto} <span class="producto-cantidad-badge">x${prod.cantidad}</span></div>
           <div class="pedido-producto-detalles">${prod.empaque} • ${prod.size}</div>
         </div>
-        <div class="pedido-producto-precio">S/ ${parseFloat(prod.precio).toFixed(2)}</div>
+        <div class="pedido-producto-precio">S/ ${(parseFloat(prod.precio) * prod.cantidad).toFixed(2)}</div>
       </div>
     `;
   });
   
+  // Botón marcar pagado (solo si está Pendiente)
+  const botonPagado = pedido.estado === 'Pendiente' ? 
+    `<button class="btn-marcar-pagado" onclick="marcarComoPagado('${pedido.pedidoId}')">✓ Marcar Pagado</button>` : '';
+  
   card.innerHTML = `
     <div class="pedido-header-info">
-      <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+      <div class="pedido-cliente-info">
+        <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+        <div class="pedido-telefono">📱 ${pedido.telefono}</div>
+      </div>
       <div class="pedido-meta">
+        <div class="pedido-estado-badge ${badgeClase}">${pedido.estado}</div>
         <div class="pedido-id-badge">${pedido.pedidoId}</div>
         <div class="pedido-fecha">${pedido.fecha}</div>
       </div>
@@ -567,13 +729,64 @@ function crearCardPedido(pedido) {
       <span class="pedido-total-label">Total:</span>
       <span class="pedido-total-monto">S/ ${pedido.total.toFixed(2)}</span>
     </div>
+    
+    ${botonPagado}
   `;
   
   return card;
 }
 
 /* ***********************************************
-   19. Cerrar Modals al Click en Overlay - scripts.html - V1.01-SV01
+   20. Marcar Como Pagado - scripts.html - V1.04-SV01
+   *********************************************** */
+
+function cambiarTabPedidos(tab) {
+  // Actualizar variable global
+  tabActual = tab;
+  
+  // Actualizar clases de botones
+  const botones = document.querySelectorAll('.tab-button');
+  botones.forEach(btn => {
+    if (btn.dataset.tab === tab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Re-renderizar lista con el filtro
+  renderizarPedidos();
+  
+  console.log(`Tab cambiada a: ${tab}`);
+}
+
+function marcarComoPagado(pedidoId) {
+  if (!confirm(`¿Marcar el pedido ${pedidoId} como PAGADO?\n\nEsto actualizará el stock de productos vendidos.`)) {
+    return;
+  }
+  
+  LoaderGlobal.mostrar('Marcando como pagado...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        mostrarExito('✓ Pedido Pagado', 'El pedido se marcó como pagado y el stock fue actualizado');
+        cargarPedidos(); // Recargar lista
+      } else {
+        throw new Error(resultado.message || 'Error al marcar pagado');
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al marcar pedido como pagado');
+    })
+    .marcarPagado(pedidoId);
+}
+
+/* ***********************************************
+   21. Cerrar Modals al Click en Overlay - scripts.html - V1.02-SV01
    *********************************************** */
 
 document.addEventListener('click', function(e) {
@@ -587,8 +800,8 @@ document.addEventListener('click', function(e) {
 });
 
 /* ***********************************************
-   20. Log de Estado - scripts.html - V1.01-SV01
+   22. Log de Estado - scripts.html - V1.06-SV01
    *********************************************** */
 
-console.log('Scripts cargados - Bebidas a Pedido V1.01');
+console.log('Scripts cargados - Bebidas a Pedido V1.06');
 </script>
