@@ -1,8 +1,8 @@
 <style>
 /*
 ***********************************************
-Bebidas a Pedido - style.html - V1.05
-23/12/2024 - 16:00
+Bebidas a Pedido - style.html - V1.08
+23/12/2024 - 18:00
 ***********************************************
 */
 
@@ -1180,6 +1180,79 @@ body {
   .tab-button {
     font-size: 0.9rem;
     padding: var(--spacing-sm) var(--spacing-md);
+  }
+}
+
+/* ***********************************************
+   28. Botón Foto de Producto - style.html - V1.08-SV01
+   *********************************************** */
+
+.btn-foto {
+  position: absolute;
+  top: var(--spacing-sm);
+  left: var(--spacing-sm);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 3;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-foto:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.05);
+}
+
+.btn-foto:active {
+  transform: scale(0.95);
+}
+
+/* ***********************************************
+   29. Modal de Imagen - style.html - V1.08-SV01
+   *********************************************** */
+
+.modal-imagen {
+  max-width: 800px;
+}
+
+.modal-imagen-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  min-height: 300px;
+  background-color: var(--color-background);
+}
+
+.imagen-producto-modal {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Responsividad del modal de imagen */
+@media (max-width: 767px) {
+  .modal-imagen {
+    max-width: 95vw;
+  }
+  
+  .modal-imagen-body {
+    padding: var(--spacing-md);
+    min-height: 200px;
+  }
+  
+  .imagen-producto-modal {
+    max-height: 60vh;
   }
 }
 
