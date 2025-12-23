@@ -1,0 +1,594 @@
+<script>
+/*
+***********************************************
+Bebidas a Pedido - scripts.html - V1.01
+22/12/2024 - 10:55
+***********************************************
+*/
+
+/* ***********************************************
+   01. Variables Globales - scripts.html - V1.01-SV01
+   *********************************************** */
+
+let licoresData = [];
+let productosSeleccionados = [];
+let pedidosData = [];
+let vistaActual = 'productos'; // 'productos' o 'pedidos'
+
+/* ***********************************************
+   02. Inicialización - scripts.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Inicializando Bebidas a Pedido...');
+  cargarLicores();
+  configurarEventos();
+});
+
+/* ***********************************************
+   03. Configurar Eventos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function configurarEventos() {
+  // Botón Admin
+  const btnAdmin = document.getElementById('btnAdmin');
+  if (btnAdmin) {
+    btnAdmin.addEventListener('click', abrirModalLogin);
+  }
+  
+  // Botón Hacer Pedido
+  const btnHacerPedido = document.getElementById('btnHacerPedido');
+  if (btnHacerPedido) {
+    btnHacerPedido.addEventListener('click', abrirModalCliente);
+  }
+  
+  // Enter en inputs
+  const inputUsuario = document.getElementById('inputUsuario');
+  if (inputUsuario) {
+    inputUsuario.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        verificarAcceso();
+      }
+    });
+  }
+  
+  const inputCliente = document.getElementById('inputCliente');
+  if (inputCliente) {
+    inputCliente.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        confirmarPedido();
+      }
+    });
+  }
+  
+  console.log('Eventos configurados');
+}
+
+/* ***********************************************
+   04. Cargar Licores - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function cargarLicores() {
+  const loader = document.getElementById('loader');
+  const listaProductos = document.getElementById('listaProductos');
+  
+  console.log('Cargando licores desde el servidor...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      console.log('Respuesta recibida:', resultado);
+      
+      if (resultado.success) {
+        licoresData = resultado.data;
+        console.log(`${licoresData.length} licores cargados`);
+        renderizarLicores();
+        
+        // Ocultar loader, mostrar productos
+        if (loader) loader.style.display = 'none';
+        if (listaProductos) listaProductos.style.display = 'grid';
+        
+        mostrarInfo('Listo', `${licoresData.length} productos disponibles`);
+      } else {
+        throw new Error(resultado.message || 'Error al cargar licores');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error al cargar licores:', error);
+      if (loader) loader.style.display = 'none';
+      manejarError(error, 'al cargar productos');
+    })
+    .getLicores();
+}
+
+/* ***********************************************
+   05. Renderizar Licores - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function renderizarLicores() {
+  const listaProductos = document.getElementById('listaProductos');
+  if (!listaProductos) {
+    console.error('Contenedor de productos no encontrado');
+    return;
+  }
+  
+  listaProductos.innerHTML = '';
+  
+  if (licoresData.length === 0) {
+    listaProductos.innerHTML = '<p class="text-center">No hay productos disponibles</p>';
+    return;
+  }
+  
+  licoresData.forEach((licor, index) => {
+    const card = crearCardProducto(licor, index);
+    listaProductos.appendChild(card);
+  });
+  
+  console.log('Licores renderizados');
+}
+
+/* ***********************************************
+   06. Crear Card de Producto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function crearCardProducto(licor, index) {
+  const card = document.createElement('div');
+  card.className = 'producto-card';
+  card.dataset.index = index;
+  
+  card.innerHTML = `
+    <div class="producto-nombre">${licor.producto}</div>
+    <div class="producto-detalles">
+      <span class="producto-detalle">${licor.empaque}</span>
+      <span class="producto-detalle">${licor.size}</span>
+    </div>
+    <div class="producto-precio">S/ ${parseFloat(licor.precio).toFixed(2)}</div>
+  `;
+  
+  card.addEventListener('click', function() {
+    toggleProducto(index);
+  });
+  
+  return card;
+}
+
+/* ***********************************************
+   07. Toggle Producto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function toggleProducto(index) {
+  const licor = licoresData[index];
+  const card = document.querySelector(`.producto-card[data-index="${index}"]`);
+  
+  if (!card) return;
+  
+  // Verificar si ya está seleccionado
+  const indexSeleccionado = productosSeleccionados.findIndex(p => p.code === licor.code);
+  
+  if (indexSeleccionado !== -1) {
+    // Deseleccionar
+    productosSeleccionados.splice(indexSeleccionado, 1);
+    card.classList.remove('selected');
+  } else {
+    // Seleccionar
+    productosSeleccionados.push({
+      code: licor.code,
+      producto: licor.producto,
+      empaque: licor.empaque,
+      size: licor.size,
+      precio: parseFloat(licor.precio)
+    });
+    card.classList.add('selected');
+  }
+  
+  actualizarTotal();
+}
+
+/* ***********************************************
+   08. Actualizar Total - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function actualizarTotal() {
+  const totalAmount = document.getElementById('totalAmount');
+  const btnHacerPedido = document.getElementById('btnHacerPedido');
+  const footerPedido = document.getElementById('footerPedido');
+  
+  const total = productosSeleccionados.reduce((sum, prod) => sum + prod.precio, 0);
+  
+  if (totalAmount) {
+    totalAmount.textContent = `S/ ${total.toFixed(2)}`;
+  }
+  
+  if (btnHacerPedido) {
+    if (productosSeleccionados.length > 0) {
+      btnHacerPedido.disabled = false;
+      if (footerPedido) footerPedido.style.display = 'flex';
+    } else {
+      btnHacerPedido.disabled = true;
+      if (footerPedido) footerPedido.style.display = 'none';
+    }
+  }
+  
+  console.log(`Total actualizado: S/ ${total.toFixed(2)} - Productos: ${productosSeleccionados.length}`);
+}
+
+/* ***********************************************
+   09. Modal Login Admin - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function abrirModalLogin() {
+  const modal = document.getElementById('modalLogin');
+  const input = document.getElementById('inputUsuario');
+  
+  if (modal) {
+    modal.style.display = 'flex';
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+function cerrarModalLogin() {
+  const modal = document.getElementById('modalLogin');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function verificarAcceso() {
+  const input = document.getElementById('inputUsuario');
+  if (!input) return;
+  
+  const usuario = input.value.trim();
+  
+  if (!usuario) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu código de acceso');
+    return;
+  }
+  
+  LoaderGlobal.mostrar('Verificando...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        cerrarModalLogin();
+        mostrarExito('Acceso concedido', 'Bienvenido');
+        mostrarVistaPedidos();
+      } else {
+        mostrarError('Acceso denegado', 'Código no válido');
+        input.value = '';
+        input.focus();
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al verificar acceso');
+    })
+    .verificarAcceso(usuario);
+}
+
+/* ***********************************************
+   10. Modal Nombre Cliente - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function abrirModalCliente() {
+  if (productosSeleccionados.length === 0) {
+    mostrarAdvertencia('Sin productos', 'Selecciona al menos un producto');
+    return;
+  }
+  
+  const modal = document.getElementById('modalCliente');
+  const input = document.getElementById('inputCliente');
+  
+  if (modal) {
+    modal.style.display = 'flex';
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
+  }
+}
+
+function cerrarModalCliente() {
+  const modal = document.getElementById('modalCliente');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function confirmarPedido() {
+  const input = document.getElementById('inputCliente');
+  if (!input) return;
+  
+  const cliente = input.value.trim();
+  
+  if (!cliente) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu nombre');
+    return;
+  }
+  
+  if (productosSeleccionados.length === 0) {
+    mostrarAdvertencia('Sin productos', 'Selecciona al menos un producto');
+    cerrarModalCliente();
+    return;
+  }
+  
+  // Cerrar modal y mostrar loader
+  cerrarModalCliente();
+  LoaderGlobal.mostrar('Generando pedido...');
+  
+  console.log('Guardando pedido:', { cliente, productos: productosSeleccionados });
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        console.log('Pedido guardado exitosamente:', resultado.pedidoId);
+        mostrarModalPedidoGenerado(cliente, resultado.pedidoId);
+        limpiarSeleccion();
+      } else {
+        throw new Error(resultado.message || 'Error al guardar pedido');
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al guardar el pedido');
+    })
+    .guardarPedido(cliente, productosSeleccionados);
+}
+
+/* ***********************************************
+   11. Modal Pedido Generado - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function mostrarModalPedidoGenerado(cliente, pedidoId) {
+  const modal = document.getElementById('modalPedidoGenerado');
+  const pedidoIdElement = document.getElementById('pedidoIdGenerado');
+  const pedidoClienteElement = document.getElementById('pedidoClienteNombre');
+  const textoWhatsapp = document.getElementById('textoWhatsapp');
+  
+  if (!modal) return;
+  
+  // Establecer información
+  if (pedidoIdElement) pedidoIdElement.textContent = pedidoId;
+  if (pedidoClienteElement) pedidoClienteElement.textContent = cliente;
+  
+  // Generar texto WhatsApp
+  const texto = generarTextoWhatsApp();
+  if (textoWhatsapp) textoWhatsapp.value = texto;
+  
+  // Mostrar modal
+  modal.style.display = 'flex';
+  
+  mostrarExito('¡Pedido registrado!', `Pedido ${pedidoId} guardado exitosamente`);
+}
+
+function cerrarModalPedidoGenerado() {
+  const modal = document.getElementById('modalPedidoGenerado');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+/* ***********************************************
+   12. Generar Texto WhatsApp - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function generarTextoWhatsApp() {
+  let texto = '';
+  let total = 0;
+  
+  productosSeleccionados.forEach(prod => {
+    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} S/${prod.precio.toFixed(2)}\n`;
+    total += prod.precio;
+  });
+  
+  texto += `*Total: S/${total.toFixed(2)}*`;
+  
+  return texto;
+}
+
+/* ***********************************************
+   13. Copiar Texto - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function copiarTexto() {
+  const textoWhatsapp = document.getElementById('textoWhatsapp');
+  
+  if (!textoWhatsapp) {
+    mostrarError('Error', 'No se encontró el texto a copiar');
+    return;
+  }
+  
+  textoWhatsapp.select();
+  textoWhatsapp.setSelectionRange(0, 99999); // Para móviles
+  
+  try {
+    document.execCommand('copy');
+    mostrarExito('¡Copiado!', 'Texto copiado al portapapeles');
+  } catch (error) {
+    console.error('Error al copiar:', error);
+    mostrarError('Error', 'No se pudo copiar el texto');
+  }
+}
+
+/* ***********************************************
+   14. Limpiar Selección - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function limpiarSeleccion() {
+  // Limpiar array
+  productosSeleccionados = [];
+  
+  // Remover clase selected de todas las cards
+  const cards = document.querySelectorAll('.producto-card');
+  cards.forEach(card => card.classList.remove('selected'));
+  
+  // Actualizar total
+  actualizarTotal();
+  
+  console.log('Selección limpiada');
+}
+
+/* ***********************************************
+   15. Vista Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function mostrarVistaPedidos() {
+  const vistaProductos = document.getElementById('vistaProductos');
+  const vistaPedidos = document.getElementById('vistaPedidos');
+  
+  if (vistaProductos) vistaProductos.style.display = 'none';
+  if (vistaPedidos) vistaPedidos.style.display = 'block';
+  
+  vistaActual = 'pedidos';
+  cargarPedidos();
+}
+
+function volverHome() {
+  const vistaProductos = document.getElementById('vistaProductos');
+  const vistaPedidos = document.getElementById('vistaPedidos');
+  
+  if (vistaProductos) vistaProductos.style.display = 'block';
+  if (vistaPedidos) vistaPedidos.style.display = 'none';
+  
+  vistaActual = 'productos';
+  console.log('Volviendo a vista de productos');
+}
+
+/* ***********************************************
+   16. Cargar Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function cargarPedidos() {
+  const listaPedidos = document.getElementById('listaPedidos');
+  
+  if (!listaPedidos) {
+    console.error('Contenedor de pedidos no encontrado');
+    return;
+  }
+  
+  // Mostrar loader
+  listaPedidos.innerHTML = `
+    <div class="loader-container">
+      <div class="loader"></div>
+      <p>Cargando pedidos...</p>
+    </div>
+  `;
+  
+  console.log('Cargando pedidos desde el servidor...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      console.log('Pedidos recibidos:', resultado);
+      
+      if (resultado.success) {
+        pedidosData = resultado.data;
+        console.log(`${pedidosData.length} pedidos cargados`);
+        renderizarPedidos();
+      } else {
+        throw new Error(resultado.message || 'Error al cargar pedidos');
+      }
+    })
+    .withFailureHandler(function(error) {
+      console.error('Error al cargar pedidos:', error);
+      listaPedidos.innerHTML = '<p class="text-center">Error al cargar pedidos</p>';
+      manejarError(error, 'al cargar pedidos');
+    })
+    .getPedidos();
+}
+
+/* ***********************************************
+   17. Renderizar Pedidos - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function renderizarPedidos() {
+  const listaPedidos = document.getElementById('listaPedidos');
+  
+  if (!listaPedidos) {
+    console.error('Contenedor de pedidos no encontrado');
+    return;
+  }
+  
+  listaPedidos.innerHTML = '';
+  
+  if (pedidosData.length === 0) {
+    listaPedidos.innerHTML = '<p class="text-center">No hay pedidos registrados</p>';
+    return;
+  }
+  
+  pedidosData.forEach(pedido => {
+    const card = crearCardPedido(pedido);
+    listaPedidos.appendChild(card);
+  });
+  
+  console.log('Pedidos renderizados');
+}
+
+/* ***********************************************
+   18. Crear Card de Pedido - scripts.html - V1.01-SV01
+   *********************************************** */
+
+function crearCardPedido(pedido) {
+  const card = document.createElement('div');
+  card.className = 'pedido-item fade-in';
+  
+  // Generar lista de productos
+  let productosHTML = '';
+  pedido.productos.forEach(prod => {
+    productosHTML += `
+      <div class="pedido-producto-item">
+        <div class="pedido-producto-info">
+          <div class="pedido-producto-nombre">${prod.producto}</div>
+          <div class="pedido-producto-detalles">${prod.empaque} • ${prod.size}</div>
+        </div>
+        <div class="pedido-producto-precio">S/ ${parseFloat(prod.precio).toFixed(2)}</div>
+      </div>
+    `;
+  });
+  
+  card.innerHTML = `
+    <div class="pedido-header-info">
+      <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+      <div class="pedido-meta">
+        <div class="pedido-id-badge">${pedido.pedidoId}</div>
+        <div class="pedido-fecha">${pedido.fecha}</div>
+      </div>
+    </div>
+    
+    <div class="pedido-productos-lista">
+      ${productosHTML}
+    </div>
+    
+    <div class="pedido-total-section">
+      <span class="pedido-total-label">Total:</span>
+      <span class="pedido-total-monto">S/ ${pedido.total.toFixed(2)}</span>
+    </div>
+  `;
+  
+  return card;
+}
+
+/* ***********************************************
+   19. Cerrar Modals al Click en Overlay - scripts.html - V1.01-SV01
+   *********************************************** */
+
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('modal-overlay')) {
+    // Cerrar el modal padre
+    const modal = e.target.parentElement;
+    if (modal && modal.classList.contains('modal')) {
+      modal.style.display = 'none';
+    }
+  }
+});
+
+/* ***********************************************
+   20. Log de Estado - scripts.html - V1.01-SV01
+   *********************************************** */
+
+console.log('Scripts cargados - Bebidas a Pedido V1.01');
+</script>
