@@ -1,6 +1,6 @@
 // ============================================
 // SOLID CODE - BEBIDAS
-// Generado: 23/12/2025, 11:59:43 a. m.
+// Generado: 24/12/2025, 7:47:11 a. m.
 // Total de archivos: 7
 // ============================================
 
@@ -11,298 +11,9 @@
 // URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/code.gs
 // ============================================
 
-/*
-***********************************************
-Bebidas a Pedido - code.gs - V1.01
-22/12/2024 - 10:30
-***********************************************
-*/
 
-// ***********************************************
-// 01. Configuración Global - code.gs - V1.01-SV01
-// ***********************************************
-
-const SHEET_ID = '1i2sy3pov9zI3pBJiwGJl070nDmFd_zwfq9Oxv3Gw5MI';
-const SHEET_LICORES = 'Licores';
-const SHEET_PEDIDOS = 'Pedidos';
-const SHEET_ADMIN = 'admin';
-
-// ***********************************************
-// 02. Función Principal - code.gs - V1.01-SV01
-// ***********************************************
-
-function doGet() {
-  return HtmlService.createTemplateFromFile('home')
-    .evaluate()
-    .setTitle('Bebidas a Pedido')
-    .setFaviconUrl('https://img.icons8.com/color/48/000000/whiskey.png')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
-}
-
-// ***********************************************
-// 03. Incluir Archivos HTML - code.gs - V1.01-SV01
-// ***********************************************
-
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
-}
-
-// ***********************************************
-// 04. Obtener Lista de Licores - code.gs - V1.01-SV01
-// ***********************************************
-
-function getLicores() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_LICORES);
-    
-    if (!sheet) {
-      console.error('No se encontró la hoja: ' + SHEET_LICORES);
-      return { success: false, message: 'No se encontró la hoja de Licores' };
-    }
-    
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-    
-    // Filtrar filas vacías
-    const licores = rows
-      .filter(row => row[1]) // Filtrar por columna Producto (índice 1)
-      .map(row => ({
-        code: row[0] || '',
-        producto: row[1] || '',
-        empaque: row[2] || '',
-        size: row[3] || '',
-        sugerido: row[4] || 0,
-        cantidad: row[5] || 0,
-        precio: row[6] || 0
-      }));
-    
-    console.log('Licores obtenidos: ' + licores.length);
-    return { success: true, data: licores };
-    
-  } catch (error) {
-    console.error('Error en getLicores: ' + error.toString());
-    return { success: false, message: 'Error al obtener licores: ' + error.toString() };
-  }
-}
-
-// ***********************************************
-// 05. Guardar Pedido - code.gs - V1.01-SV01
-// ***********************************************
-
-function guardarPedido(cliente, productos) {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
-    
-    if (!sheet) {
-      console.error('No se encontró la hoja: ' + SHEET_PEDIDOS);
-      return { success: false, message: 'No se encontró la hoja de Pedidos' };
-    }
-    
-    // Generar ID de pedido
-    const pedidoId = generarIdPedido();
-    const fecha = Utilities.formatDate(new Date(), 'America/Lima', 'dd/MM/yyyy HH:mm:ss');
-    
-    // Preparar datos para insertar
-    const rows = productos.map(prod => [
-      cliente,           // Cliente
-      prod.code,         // Code
-      prod.producto,     // Producto
-      prod.empaque,      // Empaque
-      prod.size,         // Size
-      prod.precio,       // Precio
-      fecha,             // Fecha
-      pedidoId           // Pedido
-    ]);
-    
-    // Insertar todas las filas del pedido
-    if (rows.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
-    }
-    
-    console.log('Pedido guardado: ' + pedidoId + ' - Cliente: ' + cliente + ' - Productos: ' + productos.length);
-    
-    return { 
-      success: true, 
-      message: 'Pedido registrado exitosamente',
-      pedidoId: pedidoId
-    };
-    
-  } catch (error) {
-    console.error('Error en guardarPedido: ' + error.toString());
-    return { success: false, message: 'Error al guardar pedido: ' + error.toString() };
-  }
-}
-
-// ***********************************************
-// 06. Generar ID de Pedido - code.gs - V1.01-SV01
-// ***********************************************
-
-function generarIdPedido() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
-    
-    // Obtener fecha actual en formato YYYYMMDD
-    const fecha = Utilities.formatDate(new Date(), 'America/Lima', 'yyyyMMdd');
-    
-    // Buscar el último pedido del día
-    const data = sheet.getDataRange().getValues();
-    const pedidosHoy = data
-      .slice(1) // Saltar encabezados
-      .map(row => row[7]) // Columna Pedido (índice 7)
-      .filter(pedido => pedido && pedido.toString().includes('PED-' + fecha));
-    
-    // Calcular el siguiente número
-    let numero = 1;
-    if (pedidosHoy.length > 0) {
-      const numeros = pedidosHoy.map(pedido => {
-        const partes = pedido.toString().split('-');
-        return parseInt(partes[2]) || 0;
-      });
-      numero = Math.max(...numeros) + 1;
-    }
-    
-    // Formatear con ceros a la izquierda (3 dígitos)
-    const numeroFormateado = numero.toString().padStart(3, '0');
-    
-    const pedidoId = `PED-${fecha}-${numeroFormateado}`;
-    console.log('ID generado: ' + pedidoId);
-    
-    return pedidoId;
-    
-  } catch (error) {
-    console.error('Error en generarIdPedido: ' + error.toString());
-    // En caso de error, generar un ID básico con timestamp
-    const timestamp = new Date().getTime();
-    return `PED-${timestamp}`;
-  }
-}
-
-// ***********************************************
-// 07. Verificar Acceso Admin - code.gs - V1.01-SV01
-// ***********************************************
-
-function verificarAcceso(usuario) {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_ADMIN);
-    
-    if (!sheet) {
-      console.error('No se encontró la hoja: ' + SHEET_ADMIN);
-      return { success: false, message: 'Error de configuración' };
-    }
-    
-    const data = sheet.getDataRange().getValues();
-    const usuarios = data.slice(1).map(row => row[0].toString().toLowerCase());
-    
-    const usuarioIngresado = usuario.toString().toLowerCase().trim();
-    const encontrado = usuarios.includes(usuarioIngresado);
-    
-    console.log('Verificación de acceso - Usuario: ' + usuario + ' - Resultado: ' + encontrado);
-    
-    return { 
-      success: encontrado,
-      message: encontrado ? 'Acceso concedido' : 'Usuario no autorizado'
-    };
-    
-  } catch (error) {
-    console.error('Error en verificarAcceso: ' + error.toString());
-    return { success: false, message: 'Error al verificar acceso' };
-  }
-}
-
-// ***********************************************
-// 08. Obtener Pedidos - code.gs - V1.01-SV02
-// ***********************************************
-
-function getPedidos() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
-    
-    if (!sheet) {
-      console.error('No se encontró la hoja: ' + SHEET_PEDIDOS);
-      return { success: false, message: 'No se encontró la hoja de Pedidos' };
-    }
-    
-    const data = sheet.getDataRange().getValues();
-    const rows = data.slice(1); // Saltar encabezados
-    
-    console.log('Total de filas en Pedidos: ' + rows.length);
-    
-    // Filtrar filas vacías y mapear datos
-    const pedidos = rows
-      .filter(row => row[7]) // Filtrar por columna Pedido (índice 7)
-      .map(row => {
-        // Formatear fecha - aceptar cualquier formato
-        let fechaFormateada = '';
-        try {
-          if (row[6]) {
-            if (row[6] instanceof Date) {
-              fechaFormateada = Utilities.formatDate(row[6], 'America/Lima', 'dd/MM/yyyy HH:mm');
-            } else {
-              fechaFormateada = row[6].toString();
-            }
-          }
-        } catch (e) {
-          fechaFormateada = row[6] ? row[6].toString() : '';
-        }
-        
-        return {
-          cliente: row[0] || '',
-          code: row[1] || '',
-          producto: row[2] || '',
-          empaque: row[3] || '',
-          size: row[4] || '',
-          precio: parseFloat(row[5]) || 0,
-          fecha: fechaFormateada,
-          pedidoId: row[7] || ''
-        };
-      });
-    
-    console.log('Pedidos filtrados: ' + pedidos.length);
-    
-    // Agrupar por pedidoId
-    const pedidosAgrupados = {};
-    pedidos.forEach(item => {
-      if (!pedidosAgrupados[item.pedidoId]) {
-        pedidosAgrupados[item.pedidoId] = {
-          pedidoId: item.pedidoId,
-          cliente: item.cliente,
-          fecha: item.fecha,
-          productos: [],
-          total: 0
-        };
-      }
-      
-      pedidosAgrupados[item.pedidoId].productos.push({
-        code: item.code,
-        producto: item.producto,
-        empaque: item.empaque,
-        size: item.size,
-        precio: item.precio
-      });
-      
-      pedidosAgrupados[item.pedidoId].total += item.precio;
-    });
-    
-    // Convertir a array y ordenar por pedidoId (más antiguos primero)
-    const pedidosArray = Object.values(pedidosAgrupados).sort((a, b) => {
-      return a.pedidoId.localeCompare(b.pedidoId);
-    });
-    
-    console.log('Pedidos agrupados: ' + pedidosArray.length);
-    return { success: true, data: pedidosArray };
-    
-  } catch (error) {
-    console.error('Error en getPedidos: ' + error.toString());
-    console.error('Stack trace: ' + error.stack);
-    return { success: false, message: 'Error al obtener pedidos: ' + error.toString() };
-  }
-}
+// ERROR: No se pudo obtener el archivo
+// Dirección no disponible: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/code.gs
 
 
 // ============================================
@@ -315,8 +26,8 @@ function getPedidos() {
 <head>
   <!--
   ***********************************************
-  Bebidas a Pedido - home.html - V1.01
-  22/12/2024 - 10:40
+  Bebidas a Pedido - home.html - V1.11
+  24/12/2025 - 07:25
   ***********************************************
   -->
   <meta charset="UTF-8">
@@ -327,7 +38,7 @@ function getPedidos() {
 <body>
 
   <!-- ***********************************************
-       01. Header Principal - home.html - V1.01-SV01
+       01. Header Principal - home.html - V1.02-SV01
        *********************************************** -->
   <header class="main-header">
     <div class="header-content">
@@ -342,12 +53,15 @@ function getPedidos() {
   </header>
 
   <!-- ***********************************************
-       02. Contenedor Principal - home.html - V1.01-SV01
+       02. Contenedor Principal - home.html - V1.02-SV01
        *********************************************** -->
   <main class="main-container" id="mainContainer">
     
     <!-- Vista de Productos (Default) -->
     <div id="vistaProductos" class="vista-productos">
+      
+      <!-- Mensaje de Invitación -->
+      <p class="texto-instruccion">Haz clic en los productos</p>
       
       <!-- Loader -->
       <div id="loader" class="loader-container">
@@ -380,7 +94,7 @@ function getPedidos() {
   </main>
 
   <!-- ***********************************************
-       03. Modal Login Admin - home.html - V1.01-SV01
+       03. Modal Login Admin - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalLogin" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -408,7 +122,7 @@ function getPedidos() {
   </div>
 
   <!-- ***********************************************
-       04. Modal Nombre Cliente - home.html - V1.01-SV01
+       04. Modal Nombre y Teléfono Cliente - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalCliente" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -427,6 +141,15 @@ function getPedidos() {
             placeholder="Ingresa tu nombre"
             autocomplete="name">
         </div>
+        <div class="form-group">
+          <label for="inputTelefono">Tu Teléfono / WhatsApp</label>
+          <input 
+            type="tel" 
+            id="inputTelefono" 
+            class="form-input" 
+            placeholder="Ej: 997888530"
+            autocomplete="tel">
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="cerrarModalCliente()">Cancelar</button>
@@ -436,7 +159,7 @@ function getPedidos() {
   </div>
 
   <!-- ***********************************************
-       05. Modal Pedido Generado - home.html - V1.01-SV01
+       05. Modal Pedido Generado - home.html - V1.02-SV01
        *********************************************** -->
   <div id="modalPedidoGenerado" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
@@ -452,18 +175,34 @@ function getPedidos() {
         </div>
         
         <div class="whatsapp-section">
-          <label class="whatsapp-label">Mensaje para WhatsApp:</label>
+          <label class="whatsapp-label">Copia este mensaje y envíalo a WhatsApp: <strong>997 888 530</strong></label>
           <textarea 
             id="textoWhatsapp" 
             class="whatsapp-textarea" 
             readonly></textarea>
           <button class="btn-copy" onclick="copiarTexto()">
-            <span class="copy-icon">📋</span> Copiar Texto
+            <span class="copy-icon">📋</span> Copiar Mensaje
           </button>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-primary" onclick="cerrarModalPedidoGenerado()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ***********************************************
+       06. Modal Imagen de Producto - home.html - V1.08-SV01
+       *********************************************** -->
+  <div id="modalImagen" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="cerrarModalImagen()"></div>
+    <div class="modal-content modal-imagen">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalImagenTitulo">Producto</h2>
+        <button class="modal-close" onclick="cerrarModalImagen()">×</button>
+      </div>
+      <div class="modal-body modal-imagen-body">
+        <img id="modalImagenSrc" src="" alt="Producto" class="imagen-producto-modal">
       </div>
     </div>
   </div>
@@ -481,479 +220,9 @@ function getPedidos() {
 // URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/modals.html
 // ============================================
 
-<!--
-***********************************************
-Bebidas a Pedido - modals.html - V1.01
-22/12/2024 - 10:50
-***********************************************
--->
 
-<!-- ***********************************************
-     01. Contenedor de Toast - modals.html - V1.01-SV01
-     *********************************************** -->
-<div id="toastContainer" class="toast-container"></div>
-
-<style>
-/* ***********************************************
-   02. Estilos Toast Container - modals.html - V1.01-SV01
-   *********************************************** */
-
-.toast-container {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 2000;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 400px;
-  width: calc(100% - 40px);
-}
-
-/* ***********************************************
-   03. Estilos Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-.toast {
-  background-color: var(--color-surface);
-  border-left: 4px solid;
-  border-radius: var(--border-radius-md);
-  padding: 16px 20px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  animation: toastSlideIn 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-@keyframes toastSlideIn {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes toastSlideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-}
-
-.toast.removing {
-  animation: toastSlideOut 0.3s ease forwards;
-}
-
-/* ***********************************************
-   04. Tipos de Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-.toast.success {
-  border-left-color: var(--color-success);
-}
-
-.toast.error {
-  border-left-color: var(--color-error);
-}
-
-.toast.warning {
-  border-left-color: var(--color-warning);
-}
-
-.toast.info {
-  border-left-color: var(--color-primary);
-}
-
-/* ***********************************************
-   05. Contenido Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-.toast-icon {
-  font-size: 24px;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.toast.success .toast-icon {
-  color: var(--color-success);
-}
-
-.toast.error .toast-icon {
-  color: var(--color-error);
-}
-
-.toast.warning .toast-icon {
-  color: var(--color-warning);
-}
-
-.toast.info .toast-icon {
-  color: var(--color-primary);
-}
-
-.toast-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.toast-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--color-text);
-  line-height: 1.4;
-}
-
-.toast-message {
-  font-size: 14px;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.toast-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 20px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  padding: 0;
-  line-height: 1;
-}
-
-.toast-close:hover {
-  background-color: var(--color-accent);
-  color: var(--color-text);
-}
-
-/* ***********************************************
-   06. Barra de Progreso Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-.toast-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background-color: currentColor;
-  opacity: 0.5;
-  animation: toastProgress linear forwards;
-}
-
-.toast.success .toast-progress {
-  color: var(--color-success);
-}
-
-.toast.error .toast-progress {
-  color: var(--color-error);
-}
-
-.toast.warning .toast-progress {
-  color: var(--color-warning);
-}
-
-.toast.info .toast-progress {
-  color: var(--color-primary);
-}
-
-@keyframes toastProgress {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
-
-/* ***********************************************
-   07. Responsividad Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-@media (max-width: 767px) {
-  .toast-container {
-    top: auto;
-    bottom: 20px;
-    right: 10px;
-    left: 10px;
-    width: calc(100% - 20px);
-    max-width: none;
-  }
-  
-  .toast {
-    padding: 14px 16px;
-  }
-  
-  .toast-icon {
-    font-size: 20px;
-  }
-  
-  .toast-title {
-    font-size: 14px;
-  }
-  
-  .toast-message {
-    font-size: 13px;
-  }
-}
-</style>
-
-<script>
-/* ***********************************************
-   08. Sistema de Toast - modals.html - V1.01-SV01
-   *********************************************** */
-
-const ToastSystem = {
-  container: null,
-  defaultDuration: 4000,
-  
-  init() {
-    this.container = document.getElementById('toastContainer');
-    if (!this.container) {
-      console.error('Toast container no encontrado');
-    }
-  },
-  
-  show(type, title, message = '', duration = null) {
-    if (!this.container) {
-      this.init();
-    }
-    
-    const icons = {
-      success: '✓',
-      error: '✗',
-      warning: '⚠',
-      info: 'ℹ'
-    };
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    
-    const actualDuration = duration || this.defaultDuration;
-    
-    toast.innerHTML = `
-      <span class="toast-icon">${icons[type] || 'ℹ'}</span>
-      <div class="toast-content">
-        <div class="toast-title">${title}</div>
-        ${message ? `<div class="toast-message">${message}</div>` : ''}
-      </div>
-      <button class="toast-close" onclick="ToastSystem.close(this.parentElement)">×</button>
-      <div class="toast-progress" style="animation-duration: ${actualDuration}ms"></div>
-    `;
-    
-    this.container.appendChild(toast);
-    
-    // Auto cerrar después de la duración
-    setTimeout(() => {
-      this.close(toast);
-    }, actualDuration);
-    
-    return toast;
-  },
-  
-  success(title, message = '', duration = null) {
-    return this.show('success', title, message, duration);
-  },
-  
-  error(title, message = '', duration = null) {
-    return this.show('error', title, message, duration);
-  },
-  
-  warning(title, message = '', duration = null) {
-    return this.show('warning', title, message, duration);
-  },
-  
-  info(title, message = '', duration = null) {
-    return this.show('info', title, message, duration);
-  },
-  
-  close(toastElement) {
-    if (!toastElement || !toastElement.parentElement) return;
-    
-    toastElement.classList.add('removing');
-    
-    setTimeout(() => {
-      if (toastElement.parentElement) {
-        toastElement.parentElement.removeChild(toastElement);
-      }
-    }, 300);
-  },
-  
-  closeAll() {
-    if (!this.container) return;
-    
-    const toasts = this.container.querySelectorAll('.toast');
-    toasts.forEach(toast => this.close(toast));
-  }
-};
-
-/* ***********************************************
-   09. Inicialización - modals.html - V1.01-SV01
-   *********************************************** */
-
-document.addEventListener('DOMContentLoaded', function() {
-  ToastSystem.init();
-  console.log('Toast System inicializado');
-});
-
-/* ***********************************************
-   10. Funciones Helper Globales - modals.html - V1.01-SV01
-   *********************************************** */
-
-// Funciones globales para fácil acceso
-function mostrarExito(titulo, mensaje = '', duracion = null) {
-  ToastSystem.success(titulo, mensaje, duracion);
-}
-
-function mostrarError(titulo, mensaje = '', duracion = null) {
-  ToastSystem.error(titulo, mensaje, duracion);
-}
-
-function mostrarAdvertencia(titulo, mensaje = '', duracion = null) {
-  ToastSystem.warning(titulo, mensaje, duracion);
-}
-
-function mostrarInfo(titulo, mensaje = '', duracion = null) {
-  ToastSystem.info(titulo, mensaje, duracion);
-}
-
-/* ***********************************************
-   11. Manejo de Errores Global - modals.html - V1.01-SV01
-   *********************************************** */
-
-function manejarError(error, contexto = '') {
-  console.error(`Error ${contexto}:`, error);
-  
-  let mensaje = 'Ha ocurrido un error inesperado';
-  
-  if (typeof error === 'string') {
-    mensaje = error;
-  } else if (error && error.message) {
-    mensaje = error.message;
-  }
-  
-  // No mostrar mensajes técnicos largos al usuario
-  if (mensaje.length > 150) {
-    mensaje = 'Ha ocurrido un error. Por favor, intenta nuevamente.';
-  }
-  
-  ToastSystem.error('Error', mensaje, 5000);
-}
-
-/* ***********************************************
-   12. Función de Confirmación - modals.html - V1.01-SV01
-   *********************************************** */
-
-function confirmarAccion(titulo, mensaje, onConfirm, onCancel = null) {
-  // Esta es una versión básica usando confirm del navegador
-  // Se puede mejorar creando un modal personalizado
-  
-  const confirmado = confirm(`${titulo}\n\n${mensaje}`);
-  
-  if (confirmado && onConfirm) {
-    onConfirm();
-  } else if (!confirmado && onCancel) {
-    onCancel();
-  }
-  
-  return confirmado;
-}
-
-/* ***********************************************
-   13. Loader Global - modals.html - V1.01-SV01
-   *********************************************** */
-
-const LoaderGlobal = {
-  loader: null,
-  
-  mostrar(mensaje = 'Cargando...') {
-    // Crear loader si no existe
-    if (!this.loader) {
-      this.loader = document.createElement('div');
-      this.loader.id = 'loaderGlobal';
-      this.loader.className = 'loader-global';
-      this.loader.innerHTML = `
-        <div class="loader-global-overlay"></div>
-        <div class="loader-global-content">
-          <div class="loader"></div>
-          <p class="loader-global-text">${mensaje}</p>
-        </div>
-      `;
-      document.body.appendChild(this.loader);
-    }
-    
-    this.loader.style.display = 'flex';
-    this.loader.querySelector('.loader-global-text').textContent = mensaje;
-  },
-  
-  ocultar() {
-    if (this.loader) {
-      this.loader.style.display = 'none';
-    }
-  }
-};
-
-/* ***********************************************
-   14. Estilos Loader Global - modals.html - V1.01-SV01
-   *********************************************** */
-</script>
-
-<style>
-.loader-global {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.loader-global-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(4px);
-}
-
-.loader-global-content {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  z-index: 1;
-}
-
-.loader-global-text {
-  color: var(--color-text-muted);
-  font-size: 16px;
-  font-weight: 500;
-}
-</style>
+// ERROR: No se pudo obtener el archivo
+// Dirección no disponible: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/modals.html
 
 
 // ============================================
@@ -963,13 +232,13 @@ const LoaderGlobal = {
 
 <!--
 ***********************************************
-Bebidas a Pedido - pedidos.html - V1.01
-22/12/2024 - 11:00
+Bebidas a Pedido - pedidos.html - V1.05
+23/12/2024 - 16:00
 ***********************************************
 -->
 
 <!-- ***********************************************
-     01. Header Pedidos - pedidos.html - V1.01-SV01
+     01. Header Pedidos - pedidos.html - V1.04-SV01
      *********************************************** -->
 <div class="pedidos-header">
   <h2>📋 Pedidos Registrados</h2>
@@ -979,7 +248,22 @@ Bebidas a Pedido - pedidos.html - V1.01
 </div>
 
 <!-- ***********************************************
-     02. Lista de Pedidos - pedidos.html - V1.01-SV01
+     02. Pestañas de Filtrado - pedidos.html - V1.04-SV01
+     *********************************************** -->
+<div class="pedidos-tabs">
+  <button class="tab-button active" data-tab="todos" onclick="cambiarTabPedidos('todos')">
+    📊 Todos
+  </button>
+  <button class="tab-button" data-tab="pendientes" onclick="cambiarTabPedidos('pendientes')">
+    ⏳ Pendientes
+  </button>
+  <button class="tab-button" data-tab="pagados" onclick="cambiarTabPedidos('pagados')">
+    ✅ Pagados
+  </button>
+</div>
+
+<!-- ***********************************************
+     03. Lista de Pedidos - pedidos.html - V1.04-SV01
      *********************************************** -->
 <div id="listaPedidos" class="lista-pedidos">
   <!-- Se llena dinámicamente con JavaScript -->
@@ -998,32 +282,36 @@ Bebidas a Pedido - pedidos.html - V1.01
 <script>
 /*
 ***********************************************
-Bebidas a Pedido - scripts.html - V1.01
-22/12/2024 - 10:55
+Bebidas a Pedido - scripts.html - V1.09
+23/12/2024 - 19:00
 ***********************************************
 */
 
 /* ***********************************************
-   01. Variables Globales - scripts.html - V1.01-SV01
+   01. Variables Globales - scripts.html - V1.09-SV01
    *********************************************** */
 
 let licoresData = [];
 let productosSeleccionados = [];
 let pedidosData = [];
 let vistaActual = 'productos'; // 'productos' o 'pedidos'
+let tabActual = 'todos'; // 'todos', 'pendientes' o 'pagados'
+
+// URL base de GitHub para fotos de productos
+const FOTOS_BASE_URL = 'https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/Fotos/';
 
 /* ***********************************************
-   02. Inicialización - scripts.html - V1.01-SV01
+   02. Inicialización - scripts.html - V1.06-SV01
    *********************************************** */
 
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Inicializando Bebidas a Pedido...');
+  console.log('Inicializando Bebidas a Pedido V1.06...');
   cargarLicores();
   configurarEventos();
 });
 
 /* ***********************************************
-   03. Configurar Eventos - scripts.html - V1.01-SV01
+   03. Configurar Eventos - scripts.html - V1.02-SV01
    *********************************************** */
 
 function configurarEventos() {
@@ -1053,6 +341,16 @@ function configurarEventos() {
   if (inputCliente) {
     inputCliente.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
+        const inputTelefono = document.getElementById('inputTelefono');
+        if (inputTelefono) inputTelefono.focus();
+      }
+    });
+  }
+  
+  const inputTelefono = document.getElementById('inputTelefono');
+  if (inputTelefono) {
+    inputTelefono.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
         confirmarPedido();
       }
     });
@@ -1062,7 +360,7 @@ function configurarEventos() {
 }
 
 /* ***********************************************
-   04. Cargar Licores - scripts.html - V1.01-SV01
+   04. Cargar Licores - scripts.html - V1.02-SV01
    *********************************************** */
 
 function cargarLicores() {
@@ -1098,7 +396,7 @@ function cargarLicores() {
 }
 
 /* ***********************************************
-   05. Renderizar Licores - scripts.html - V1.01-SV01
+   05. Renderizar Licores - scripts.html - V1.02-SV01
    *********************************************** */
 
 function renderizarLicores() {
@@ -1124,7 +422,7 @@ function renderizarLicores() {
 }
 
 /* ***********************************************
-   06. Crear Card de Producto - scripts.html - V1.01-SV01
+   06. Crear Card de Producto - scripts.html - V1.09-SV01
    *********************************************** */
 
 function crearCardProducto(licor, index) {
@@ -1132,16 +430,36 @@ function crearCardProducto(licor, index) {
   card.className = 'producto-card';
   card.dataset.index = index;
   
+  // Construir URL de foto
+  const urlFoto = FOTOS_BASE_URL + licor.code + '.jpg';
+  
   card.innerHTML = `
+    <div class="producto-selector">○</div>
+    <a href="${urlFoto}" target="_blank" class="btn-ver-foto" onclick="event.stopPropagation()">Ver Foto ↗</a>
     <div class="producto-nombre">${licor.producto}</div>
     <div class="producto-detalles">
       <span class="producto-detalle">${licor.empaque}</span>
       <span class="producto-detalle">${licor.size}</span>
     </div>
+    <div class="producto-stock">Stock: ${licor.saldoInicial} unidades</div>
     <div class="producto-precio">S/ ${parseFloat(licor.precio).toFixed(2)}</div>
+    <div class="producto-cantidad-control" style="display: none;">
+      <label>Cantidad:</label>
+      <div class="cantidad-input-group">
+        <button class="btn-cantidad" onclick="cambiarCantidad(${index}, -1)">−</button>
+        <input type="number" class="cantidad-input" id="cantidad_${index}" value="1" min="1" max="${licor.saldoInicial}" readonly>
+        <button class="btn-cantidad" onclick="cambiarCantidad(${index}, 1)">+</button>
+      </div>
+    </div>
   `;
   
-  card.addEventListener('click', function() {
+  card.addEventListener('click', function(e) {
+    // Evitar toggle si se hace clic en los botones de cantidad o link de foto
+    if (e.target.classList.contains('btn-cantidad') || 
+        e.target.classList.contains('cantidad-input') ||
+        e.target.classList.contains('btn-ver-foto')) {
+      return;
+    }
     toggleProducto(index);
   });
   
@@ -1149,7 +467,7 @@ function crearCardProducto(licor, index) {
 }
 
 /* ***********************************************
-   07. Toggle Producto - scripts.html - V1.01-SV01
+   07. Toggle Producto - scripts.html - V1.02-SV01
    *********************************************** */
 
 function toggleProducto(index) {
@@ -1158,6 +476,10 @@ function toggleProducto(index) {
   
   if (!card) return;
   
+  const selector = card.querySelector('.producto-selector');
+  const cantidadControl = card.querySelector('.producto-cantidad-control');
+  const cantidadInput = document.getElementById(`cantidad_${index}`);
+  
   // Verificar si ya está seleccionado
   const indexSeleccionado = productosSeleccionados.findIndex(p => p.code === licor.code);
   
@@ -1165,23 +487,58 @@ function toggleProducto(index) {
     // Deseleccionar
     productosSeleccionados.splice(indexSeleccionado, 1);
     card.classList.remove('selected');
+    if (selector) selector.textContent = '○';
+    if (cantidadControl) cantidadControl.style.display = 'none';
+    if (cantidadInput) cantidadInput.value = 1;
   } else {
     // Seleccionar
+    const cantidad = cantidadInput ? parseInt(cantidadInput.value) || 1 : 1;
     productosSeleccionados.push({
       code: licor.code,
       producto: licor.producto,
       empaque: licor.empaque,
       size: licor.size,
-      precio: parseFloat(licor.precio)
+      precio: parseFloat(licor.precio),
+      cantidad: cantidad,
+      index: index
     });
     card.classList.add('selected');
+    if (selector) selector.textContent = '●';
+    if (cantidadControl) cantidadControl.style.display = 'flex';
   }
   
   actualizarTotal();
 }
 
 /* ***********************************************
-   08. Actualizar Total - scripts.html - V1.01-SV01
+   08. Cambiar Cantidad - scripts.html - V1.02-SV01
+   *********************************************** */
+
+function cambiarCantidad(index, cambio) {
+  const licor = licoresData[index];
+  const cantidadInput = document.getElementById(`cantidad_${index}`);
+  
+  if (!cantidadInput) return;
+  
+  let nuevaCantidad = parseInt(cantidadInput.value) + cambio;
+  
+  // Validar límites
+  const max = licor.saldoInicial;
+  if (nuevaCantidad < 1) nuevaCantidad = 1;
+  if (nuevaCantidad > max) nuevaCantidad = max;
+  
+  cantidadInput.value = nuevaCantidad;
+  
+  // Actualizar en el array de seleccionados
+  const productoSeleccionado = productosSeleccionados.find(p => p.code === licor.code);
+  if (productoSeleccionado) {
+    productoSeleccionado.cantidad = nuevaCantidad;
+    actualizarTotal();
+  }
+}
+
+/* ***********************************************
+   09. Actualizar Total - scripts.html - V1.02-SV01
    *********************************************** */
 
 function actualizarTotal() {
@@ -1189,7 +546,7 @@ function actualizarTotal() {
   const btnHacerPedido = document.getElementById('btnHacerPedido');
   const footerPedido = document.getElementById('footerPedido');
   
-  const total = productosSeleccionados.reduce((sum, prod) => sum + prod.precio, 0);
+  const total = productosSeleccionados.reduce((sum, prod) => sum + (prod.precio * prod.cantidad), 0);
   
   if (totalAmount) {
     totalAmount.textContent = `S/ ${total.toFixed(2)}`;
@@ -1209,7 +566,7 @@ function actualizarTotal() {
 }
 
 /* ***********************************************
-   09. Modal Login Admin - scripts.html - V1.01-SV01
+   10. Modal Login Admin - scripts.html - V1.02-SV01
    *********************************************** */
 
 function abrirModalLogin() {
@@ -1267,7 +624,7 @@ function verificarAcceso() {
 }
 
 /* ***********************************************
-   10. Modal Nombre Cliente - scripts.html - V1.01-SV01
+   11. Modal Nombre y Teléfono Cliente - scripts.html - V1.02-SV01
    *********************************************** */
 
 function abrirModalCliente() {
@@ -1277,13 +634,17 @@ function abrirModalCliente() {
   }
   
   const modal = document.getElementById('modalCliente');
-  const input = document.getElementById('inputCliente');
+  const inputCliente = document.getElementById('inputCliente');
+  const inputTelefono = document.getElementById('inputTelefono');
   
   if (modal) {
     modal.style.display = 'flex';
-    if (input) {
-      input.value = '';
-      setTimeout(() => input.focus(), 100);
+    if (inputCliente) {
+      inputCliente.value = '';
+      setTimeout(() => inputCliente.focus(), 100);
+    }
+    if (inputTelefono) {
+      inputTelefono.value = '';
     }
   }
 }
@@ -1296,13 +657,23 @@ function cerrarModalCliente() {
 }
 
 function confirmarPedido() {
-  const input = document.getElementById('inputCliente');
-  if (!input) return;
+  const inputCliente = document.getElementById('inputCliente');
+  const inputTelefono = document.getElementById('inputTelefono');
   
-  const cliente = input.value.trim();
+  if (!inputCliente || !inputTelefono) return;
+  
+  const cliente = inputCliente.value.trim();
+  const telefono = inputTelefono.value.trim();
   
   if (!cliente) {
     mostrarAdvertencia('Campo vacío', 'Ingresa tu nombre');
+    inputCliente.focus();
+    return;
+  }
+  
+  if (!telefono) {
+    mostrarAdvertencia('Campo vacío', 'Ingresa tu teléfono');
+    inputTelefono.focus();
     return;
   }
   
@@ -1316,7 +687,7 @@ function confirmarPedido() {
   cerrarModalCliente();
   LoaderGlobal.mostrar('Generando pedido...');
   
-  console.log('Guardando pedido:', { cliente, productos: productosSeleccionados });
+  console.log('Guardando pedido:', { cliente, telefono, productos: productosSeleccionados });
   
   google.script.run
     .withSuccessHandler(function(resultado) {
@@ -1334,11 +705,11 @@ function confirmarPedido() {
       LoaderGlobal.ocultar();
       manejarError(error, 'al guardar el pedido');
     })
-    .guardarPedido(cliente, productosSeleccionados);
+    .guardarPedido(cliente, telefono, productosSeleccionados);
 }
 
 /* ***********************************************
-   11. Modal Pedido Generado - scripts.html - V1.01-SV01
+   12. Modal Pedido Generado - scripts.html - V1.02-SV01
    *********************************************** */
 
 function mostrarModalPedidoGenerado(cliente, pedidoId) {
@@ -1371,7 +742,7 @@ function cerrarModalPedidoGenerado() {
 }
 
 /* ***********************************************
-   12. Generar Texto WhatsApp - scripts.html - V1.01-SV01
+   13. Generar Texto WhatsApp - scripts.html - V1.02-SV01
    *********************************************** */
 
 function generarTextoWhatsApp() {
@@ -1379,8 +750,9 @@ function generarTextoWhatsApp() {
   let total = 0;
   
   productosSeleccionados.forEach(prod => {
-    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} S/${prod.precio.toFixed(2)}\n`;
-    total += prod.precio;
+    const subtotal = prod.precio * prod.cantidad;
+    texto += `- ${prod.producto} ${prod.empaque} ${prod.size} x${prod.cantidad} S/${subtotal.toFixed(2)}\n`;
+    total += subtotal;
   });
   
   texto += `*Total: S/${total.toFixed(2)}*`;
@@ -1389,7 +761,7 @@ function generarTextoWhatsApp() {
 }
 
 /* ***********************************************
-   13. Copiar Texto - scripts.html - V1.01-SV01
+   14. Copiar Texto - scripts.html - V1.02-SV01
    *********************************************** */
 
 function copiarTexto() {
@@ -1413,16 +785,22 @@ function copiarTexto() {
 }
 
 /* ***********************************************
-   14. Limpiar Selección - scripts.html - V1.01-SV01
+   15. Limpiar Selección - scripts.html - V1.02-SV01
    *********************************************** */
 
 function limpiarSeleccion() {
   // Limpiar array
   productosSeleccionados = [];
   
-  // Remover clase selected de todas las cards
+  // Remover clase selected de todas las cards y resetear selectores
   const cards = document.querySelectorAll('.producto-card');
-  cards.forEach(card => card.classList.remove('selected'));
+  cards.forEach(card => {
+    card.classList.remove('selected');
+    const selector = card.querySelector('.producto-selector');
+    const cantidadControl = card.querySelector('.producto-cantidad-control');
+    if (selector) selector.textContent = '○';
+    if (cantidadControl) cantidadControl.style.display = 'none';
+  });
   
   // Actualizar total
   actualizarTotal();
@@ -1431,7 +809,7 @@ function limpiarSeleccion() {
 }
 
 /* ***********************************************
-   15. Vista Pedidos - scripts.html - V1.01-SV01
+   16. Vista Pedidos - scripts.html - V1.06-SV01
    *********************************************** */
 
 function mostrarVistaPedidos() {
@@ -1442,6 +820,7 @@ function mostrarVistaPedidos() {
   if (vistaPedidos) vistaPedidos.style.display = 'block';
   
   vistaActual = 'pedidos';
+  tabActual = 'todos'; // Resetear a pestaña "Todos" al entrar
   cargarPedidos();
 }
 
@@ -1457,7 +836,7 @@ function volverHome() {
 }
 
 /* ***********************************************
-   16. Cargar Pedidos - scripts.html - V1.01-SV01
+   17. Cargar Pedidos - scripts.html - V1.02-SV01
    *********************************************** */
 
 function cargarPedidos() {
@@ -1499,7 +878,7 @@ function cargarPedidos() {
 }
 
 /* ***********************************************
-   17. Renderizar Pedidos - scripts.html - V1.01-SV01
+   18. Renderizar Pedidos - scripts.html - V1.06-SV01
    *********************************************** */
 
 function renderizarPedidos() {
@@ -1517,21 +896,43 @@ function renderizarPedidos() {
     return;
   }
   
-  pedidosData.forEach(pedido => {
+  // Filtrar pedidos según la pestaña activa
+  let pedidosFiltrados = pedidosData;
+  
+  if (tabActual === 'pendientes') {
+    pedidosFiltrados = pedidosData.filter(p => p.estado === 'Pendiente');
+  } else if (tabActual === 'pagados') {
+    pedidosFiltrados = pedidosData.filter(p => p.estado === 'Pagado');
+  }
+  
+  if (pedidosFiltrados.length === 0) {
+    const mensajes = {
+      'todos': 'No hay pedidos registrados',
+      'pendientes': 'No hay pedidos pendientes',
+      'pagados': 'No hay pedidos pagados'
+    };
+    listaPedidos.innerHTML = `<p class="text-center">${mensajes[tabActual]}</p>`;
+    return;
+  }
+  
+  pedidosFiltrados.forEach(pedido => {
     const card = crearCardPedido(pedido);
     listaPedidos.appendChild(card);
   });
   
-  console.log('Pedidos renderizados');
+  console.log(`Pedidos renderizados (${tabActual}): ${pedidosFiltrados.length}`);
 }
 
 /* ***********************************************
-   18. Crear Card de Pedido - scripts.html - V1.01-SV01
+   19. Crear Card de Pedido - scripts.html - V1.02-SV01
    *********************************************** */
 
 function crearCardPedido(pedido) {
   const card = document.createElement('div');
-  card.className = 'pedido-item fade-in';
+  card.className = `pedido-item fade-in ${pedido.estado === 'Pagado' ? 'pedido-pagado' : ''}`;
+  
+  // Badge de estado
+  const badgeClase = pedido.estado === 'Pagado' ? 'badge-pagado' : 'badge-pendiente';
   
   // Generar lista de productos
   let productosHTML = '';
@@ -1539,18 +940,26 @@ function crearCardPedido(pedido) {
     productosHTML += `
       <div class="pedido-producto-item">
         <div class="pedido-producto-info">
-          <div class="pedido-producto-nombre">${prod.producto}</div>
+          <div class="pedido-producto-nombre">${prod.producto} <span class="producto-cantidad-badge">x${prod.cantidad}</span></div>
           <div class="pedido-producto-detalles">${prod.empaque} • ${prod.size}</div>
         </div>
-        <div class="pedido-producto-precio">S/ ${parseFloat(prod.precio).toFixed(2)}</div>
+        <div class="pedido-producto-precio">S/ ${(parseFloat(prod.precio) * prod.cantidad).toFixed(2)}</div>
       </div>
     `;
   });
   
+  // Botón marcar pagado (solo si está Pendiente)
+  const botonPagado = pedido.estado === 'Pendiente' ? 
+    `<button class="btn-marcar-pagado" onclick="marcarComoPagado('${pedido.pedidoId}')">✓ Marcar Pagado</button>` : '';
+  
   card.innerHTML = `
     <div class="pedido-header-info">
-      <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+      <div class="pedido-cliente-info">
+        <div class="pedido-cliente-nombre">${pedido.cliente}</div>
+        <div class="pedido-telefono">📱 ${pedido.telefono}</div>
+      </div>
       <div class="pedido-meta">
+        <div class="pedido-estado-badge ${badgeClase}">${pedido.estado}</div>
         <div class="pedido-id-badge">${pedido.pedidoId}</div>
         <div class="pedido-fecha">${pedido.fecha}</div>
       </div>
@@ -1564,13 +973,64 @@ function crearCardPedido(pedido) {
       <span class="pedido-total-label">Total:</span>
       <span class="pedido-total-monto">S/ ${pedido.total.toFixed(2)}</span>
     </div>
+    
+    ${botonPagado}
   `;
   
   return card;
 }
 
 /* ***********************************************
-   19. Cerrar Modals al Click en Overlay - scripts.html - V1.01-SV01
+   20. Marcar Como Pagado - scripts.html - V1.06-SV01
+   *********************************************** */
+
+function cambiarTabPedidos(tab) {
+  // Actualizar variable global
+  tabActual = tab;
+  
+  // Actualizar clases de botones
+  const botones = document.querySelectorAll('.tab-button');
+  botones.forEach(btn => {
+    if (btn.dataset.tab === tab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Re-renderizar lista con el filtro
+  renderizarPedidos();
+  
+  console.log(`Tab cambiada a: ${tab}`);
+}
+
+function marcarComoPagado(pedidoId) {
+  if (!confirm(`¿Marcar el pedido ${pedidoId} como PAGADO?\n\nEsto actualizará el stock de productos vendidos.`)) {
+    return;
+  }
+  
+  LoaderGlobal.mostrar('Marcando como pagado...');
+  
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      LoaderGlobal.ocultar();
+      
+      if (resultado.success) {
+        mostrarExito('✓ Pedido Pagado', 'El pedido se marcó como pagado y el stock fue actualizado');
+        cargarPedidos(); // Recargar lista
+      } else {
+        throw new Error(resultado.message || 'Error al marcar pagado');
+      }
+    })
+    .withFailureHandler(function(error) {
+      LoaderGlobal.ocultar();
+      manejarError(error, 'al marcar pedido como pagado');
+    })
+    .marcarPagado(pedidoId);
+}
+
+/* ***********************************************
+   21. Cerrar Modals al Click en Overlay - scripts.html - V1.02-SV01
    *********************************************** */
 
 document.addEventListener('click', function(e) {
@@ -1584,10 +1044,10 @@ document.addEventListener('click', function(e) {
 });
 
 /* ***********************************************
-   20. Log de Estado - scripts.html - V1.01-SV01
+   22. Log de Estado - scripts.html - V1.09-SV01
    *********************************************** */
 
-console.log('Scripts cargados - Bebidas a Pedido V1.01');
+console.log('Scripts cargados - Bebidas a Pedido V1.09');
 </script>
 
 
@@ -1599,8 +1059,8 @@ console.log('Scripts cargados - Bebidas a Pedido V1.01');
 <style>
 /*
 ***********************************************
-Bebidas a Pedido - style.html - V1.01
-22/12/2024 - 10:45
+Bebidas a Pedido - style.html - V1.11
+24/12/2025 - 07:25
 ***********************************************
 */
 
@@ -2465,6 +1925,421 @@ body {
   }
 }
 
+/* ***********************************************
+   18. Texto de Instrucción - style.html - V1.11-SV01
+   *********************************************** */
+
+.texto-instruccion {
+  text-align: center;
+  color: var(--color-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 var(--spacing-lg) 0;
+  padding: var(--spacing-sm) 0;
+}
+
+/* ***********************************************
+   18b. Imagen de Producto - style.html - V1.05-SV01
+   *********************************************** */
+
+.producto-imagen {
+  width: 100%;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-md);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, transparent 100%);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+
+.producto-imagen img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform var(--transition-normal);
+}
+
+.producto-card:hover .producto-imagen img {
+  transform: scale(1.05);
+}
+
+/* ***********************************************
+   19. Selector de Producto (Círculo) - style.html - V1.02-SV01
+   *********************************************** */
+
+.producto-selector {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  border: 2px solid var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--color-primary);
+  transition: all var(--transition-normal);
+  z-index: 2;
+}
+
+.producto-card.selected .producto-selector {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.1);
+}
+
+/* ***********************************************
+   20. Stock de Producto - style.html - V1.02-SV01
+   *********************************************** */
+
+.producto-stock {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.producto-stock::before {
+  content: '📦';
+  font-size: 0.9rem;
+}
+
+/* ***********************************************
+   21. Control de Cantidad - style.html - V1.02-SV01
+   *********************************************** */
+
+.producto-cantidad-control {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-accent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.producto-cantidad-control label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.cantidad-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  justify-content: center;
+}
+
+.btn-cantidad {
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-sm);
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.btn-cantidad:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.1);
+}
+
+.btn-cantidad:active {
+  transform: scale(0.95);
+}
+
+.cantidad-input {
+  width: 60px;
+  text-align: center;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: var(--spacing-xs);
+}
+
+/* ***********************************************
+   22. Badges de Estado - style.html - V1.02-SV01
+   *********************************************** */
+
+.pedido-estado-badge {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-pendiente {
+  background-color: rgba(255, 152, 0, 0.2);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.badge-pagado {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+/* ***********************************************
+   23. Teléfono en Pedido - style.html - V1.02-SV01
+   *********************************************** */
+
+.pedido-cliente-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.pedido-telefono {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+/* ***********************************************
+   24. Badge de Cantidad en Productos - style.html - V1.02-SV01
+   *********************************************** */
+
+.producto-cantidad-badge {
+  display: inline-block;
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+  padding: 2px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: var(--spacing-xs);
+}
+
+/* ***********************************************
+   25. Botón Marcar Pagado - style.html - V1.02-SV01
+   *********************************************** */
+
+.btn-marcar-pagado {
+  width: 100%;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-marcar-pagado:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-marcar-pagado:active {
+  transform: translateY(0);
+}
+
+/* ***********************************************
+   26. Pedido Pagado - style.html - V1.02-SV01
+   *********************************************** */
+
+.pedido-pagado {
+  opacity: 0.85;
+  border-color: var(--color-success);
+}
+
+.pedido-pagado .pedido-header-info {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, transparent 100%);
+}
+
+/* ***********************************************
+   27. Pestañas de Pedidos - style.html - V1.04-SV01
+   *********************************************** */
+
+.pedidos-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  padding: 0 var(--spacing-md);
+  border-bottom: 2px solid var(--color-accent);
+}
+
+.tab-button {
+  flex: 1;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-align: center;
+  position: relative;
+  bottom: -2px;
+}
+
+.tab-button:hover {
+  color: var(--color-primary);
+  background-color: rgba(212, 175, 55, 0.05);
+}
+
+.tab-button.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  background-color: rgba(212, 175, 55, 0.1);
+}
+
+.tab-button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--color-primary);
+}
+
+/* Responsividad de pestañas */
+@media (max-width: 767px) {
+  .tab-button {
+    font-size: 0.9rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+}
+
+/* ***********************************************
+   28. Botón Foto de Producto - style.html - V1.08-SV01
+   *********************************************** */
+
+.btn-foto {
+  position: absolute;
+  top: var(--spacing-sm);
+  left: var(--spacing-sm);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 3;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-foto:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.05);
+}
+
+.btn-foto:active {
+  transform: scale(0.95);
+}
+
+/* ***********************************************
+   29. Modal de Imagen - style.html - V1.08-SV01
+   *********************************************** */
+
+.modal-imagen {
+  max-width: 800px;
+}
+
+.modal-imagen-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  min-height: 300px;
+  background-color: var(--color-background);
+}
+
+.imagen-producto-modal {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Responsividad del modal de imagen */
+@media (max-width: 767px) {
+  .modal-imagen {
+    max-width: 95vw;
+  }
+  
+  .modal-imagen-body {
+    padding: var(--spacing-md);
+    min-height: 200px;
+  }
+  
+  .imagen-producto-modal {
+    max-height: 60vh;
+  }
+}
+
+/* ***********************************************
+   30. Botón Ver Foto - style.html - V1.10-SV01
+   *********************************************** */
+
+.btn-ver-foto {
+  position: absolute;
+  bottom: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 3;
+  display: inline-block;
+}
+
+.btn-ver-foto:hover {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  transform: scale(1.05);
+  text-decoration: none;
+}
+
+.btn-ver-foto:active {
+  transform: scale(0.95);
+}
+
 </style>
 
 
@@ -2473,482 +2348,12 @@ body {
 // URL: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/testall.gs
 // ============================================
 
-/*
-***********************************************
-Bebidas a Pedido - testall.gs - V1.01
-22/12/2024 - 10:35
-***********************************************
-*/
 
-// ***********************************************
-// 01. Función Principal de Testing - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testAll() {
-  console.log('='.repeat(60));
-  console.log('INICIANDO BATERÍA COMPLETA DE PRUEBAS - BEBIDAS A PEDIDO');
-  console.log('='.repeat(60));
-  console.log('');
-  
-  const resultados = {
-    total: 0,
-    exitosos: 0,
-    fallidos: 0,
-    tests: []
-  };
-  
-  // Ejecutar todas las pruebas
-  ejecutarTest(resultados, 'Autorización Inicial', testAutorizacion);
-  ejecutarTest(resultados, 'Conexión al Sheet', testConexionSheet);
-  ejecutarTest(resultados, 'Lectura de Licores', testLeerLicores);
-  ejecutarTest(resultados, 'Verificación de Admin', testVerificarAdmin);
-  ejecutarTest(resultados, 'Generación de ID Pedido', testGenerarIdPedido);
-  ejecutarTest(resultados, 'Guardado de Pedido', testGuardarPedido);
-  ejecutarTest(resultados, 'Lectura de Pedidos', testLeerPedidos);
-  
-  // Mostrar resumen
-  console.log('');
-  console.log('='.repeat(60));
-  console.log('RESUMEN DE PRUEBAS');
-  console.log('='.repeat(60));
-  console.log(`Total de pruebas: ${resultados.total}`);
-  console.log(`Exitosas: ${resultados.exitosos} ✓`);
-  console.log(`Fallidas: ${resultados.fallidos} ✗`);
-  console.log('');
-  
-  resultados.tests.forEach(test => {
-    const icono = test.exito ? '✓' : '✗';
-    console.log(`${icono} ${test.nombre}: ${test.mensaje}`);
-  });
-  
-  console.log('');
-  console.log('='.repeat(60));
-  
-  if (resultados.fallidos === 0) {
-    console.log('¡TODAS LAS PRUEBAS PASARON EXITOSAMENTE! 🎉');
-  } else {
-    console.log('ALGUNAS PRUEBAS FALLARON. REVISA LOS DETALLES ARRIBA. ⚠️');
-  }
-  console.log('='.repeat(60));
-  
-  return resultados;
-}
-
-// ***********************************************
-// 02. Función Ejecutar Test - testall.gs - V1.01-SV01
-// ***********************************************
-
-function ejecutarTest(resultados, nombreTest, funcionTest) {
-  resultados.total++;
-  console.log(`\n▶ Ejecutando: ${nombreTest}...`);
-  console.log('-'.repeat(60));
-  
-  try {
-    const resultado = funcionTest();
-    
-    if (resultado.success) {
-      resultados.exitosos++;
-      resultados.tests.push({
-        nombre: nombreTest,
-        exito: true,
-        mensaje: resultado.mensaje || 'OK'
-      });
-      console.log(`✓ ${nombreTest}: EXITOSO`);
-      if (resultado.detalles) {
-        console.log(`  Detalles: ${resultado.detalles}`);
-      }
-    } else {
-      resultados.fallidos++;
-      resultados.tests.push({
-        nombre: nombreTest,
-        exito: false,
-        mensaje: resultado.mensaje || 'Error desconocido'
-      });
-      console.log(`✗ ${nombreTest}: FALLIDO`);
-      console.log(`  Error: ${resultado.mensaje}`);
-    }
-  } catch (error) {
-    resultados.fallidos++;
-    resultados.tests.push({
-      nombre: nombreTest,
-      exito: false,
-      mensaje: error.toString()
-    });
-    console.log(`✗ ${nombreTest}: EXCEPCIÓN`);
-    console.log(`  Error: ${error.toString()}`);
-  }
-}
-
-// ***********************************************
-// 03. Test: Autorización Inicial - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testAutorizacion() {
-  try {
-    // Forzar autorización accediendo a servicios que requieren permisos
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const nombre = ss.getName();
-    
-    return {
-      success: true,
-      mensaje: 'Autorización concedida',
-      detalles: `Sheet: "${nombre}"`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error de autorización: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 04. Test: Conexión al Sheet - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testConexionSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const hojas = ss.getSheets().map(h => h.getName());
-    
-    // Verificar que existan las hojas necesarias
-    const hojasRequeridas = [SHEET_LICORES, SHEET_PEDIDOS, SHEET_ADMIN];
-    const hojasFaltantes = hojasRequeridas.filter(h => !hojas.includes(h));
-    
-    if (hojasFaltantes.length > 0) {
-      return {
-        success: false,
-        mensaje: `Faltan hojas: ${hojasFaltantes.join(', ')}`
-      };
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Conexión exitosa',
-      detalles: `Hojas encontradas: ${hojas.join(', ')}`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error de conexión: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 05. Test: Lectura de Licores - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testLeerLicores() {
-  try {
-    const resultado = getLicores();
-    
-    if (!resultado.success) {
-      return {
-        success: false,
-        mensaje: resultado.message
-      };
-    }
-    
-    const licores = resultado.data;
-    
-    if (!Array.isArray(licores)) {
-      return {
-        success: false,
-        mensaje: 'El resultado no es un array'
-      };
-    }
-    
-    if (licores.length === 0) {
-      return {
-        success: false,
-        mensaje: 'No se encontraron licores en la hoja'
-      };
-    }
-    
-    // Verificar estructura del primer licor
-    const primer = licores[0];
-    const camposRequeridos = ['code', 'producto', 'empaque', 'size', 'precio'];
-    const camposFaltantes = camposRequeridos.filter(campo => !(campo in primer));
-    
-    if (camposFaltantes.length > 0) {
-      return {
-        success: false,
-        mensaje: `Faltan campos: ${camposFaltantes.join(', ')}`
-      };
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Lectura exitosa',
-      detalles: `${licores.length} licores encontrados. Ejemplo: ${primer.producto}`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 06. Test: Verificación de Admin - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testVerificarAdmin() {
-  try {
-    // Obtener el primer usuario admin de la hoja
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_ADMIN);
-    const data = sheet.getDataRange().getValues();
-    
-    if (data.length < 2) {
-      return {
-        success: false,
-        mensaje: 'No hay usuarios en la hoja Admin'
-      };
-    }
-    
-    const usuarioTest = data[1][0]; // Primer usuario
-    
-    // Probar verificación exitosa
-    const resultadoOK = verificarAcceso(usuarioTest);
-    if (!resultadoOK.success) {
-      return {
-        success: false,
-        mensaje: `Verificación fallida para usuario válido: ${usuarioTest}`
-      };
-    }
-    
-    // Probar verificación fallida
-    const resultadoFail = verificarAcceso('usuario_inexistente_12345');
-    if (resultadoFail.success) {
-      return {
-        success: false,
-        mensaje: 'Verificación permitió usuario inválido'
-      };
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Verificación funciona correctamente',
-      detalles: `Usuario válido probado: ${usuarioTest}`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 07. Test: Generación de ID Pedido - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testGenerarIdPedido() {
-  try {
-    const pedidoId = generarIdPedido();
-    
-    // Verificar formato PED-YYYYMMDD-###
-    const patron = /^PED-\d{8}-\d{3}$/;
-    
-    if (!patron.test(pedidoId)) {
-      return {
-        success: false,
-        mensaje: `Formato incorrecto: ${pedidoId}. Esperado: PED-YYYYMMDD-###`
-      };
-    }
-    
-    // Verificar que la fecha sea de hoy
-    const hoy = Utilities.formatDate(new Date(), 'America/Lima', 'yyyyMMdd');
-    if (!pedidoId.includes(hoy)) {
-      return {
-        success: false,
-        mensaje: `La fecha no corresponde al día actual. ID: ${pedidoId}`
-      };
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Generación exitosa',
-      detalles: `ID generado: ${pedidoId}`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 08. Test: Guardado de Pedido - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testGuardarPedido() {
-  try {
-    // Crear pedido de prueba
-    const productosTest = [
-      {
-        code: 'TEST001',
-        producto: 'Licor Test 1',
-        empaque: 'Botella',
-        size: '750ml',
-        precio: 50.00
-      },
-      {
-        code: 'TEST002',
-        producto: 'Licor Test 2',
-        empaque: 'Caja',
-        size: '1L',
-        precio: 75.00
-      }
-    ];
-    
-    const clienteTest = 'Cliente Test - ' + new Date().getTime();
-    
-    // Guardar pedido
-    const resultado = guardarPedido(clienteTest, productosTest);
-    
-    if (!resultado.success) {
-      return {
-        success: false,
-        mensaje: resultado.message
-      };
-    }
-    
-    // Verificar que se haya guardado
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_PEDIDOS);
-    const data = sheet.getDataRange().getValues();
-    
-    // Buscar el pedido recién creado
-    const pedidoEncontrado = data.slice(1).some(row => 
-      row[0] === clienteTest && row[7] === resultado.pedidoId
-    );
-    
-    if (!pedidoEncontrado) {
-      return {
-        success: false,
-        mensaje: 'El pedido no se encontró en la hoja después de guardarlo'
-      };
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Guardado exitoso',
-      detalles: `Pedido: ${resultado.pedidoId}, Cliente: ${clienteTest}, Productos: ${productosTest.length}`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 09. Test: Lectura de Pedidos - testall.gs - V1.01-SV01
-// ***********************************************
-
-function testLeerPedidos() {
-  try {
-    const resultado = getPedidos();
-    
-    if (!resultado.success) {
-      return {
-        success: false,
-        mensaje: resultado.message
-      };
-    }
-    
-    const pedidos = resultado.data;
-    
-    if (!Array.isArray(pedidos)) {
-      return {
-        success: false,
-        mensaje: 'El resultado no es un array'
-      };
-    }
-    
-    // Si hay pedidos, verificar estructura
-    if (pedidos.length > 0) {
-      const primer = pedidos[0];
-      const camposRequeridos = ['pedidoId', 'cliente', 'fecha', 'productos', 'total'];
-      const camposFaltantes = camposRequeridos.filter(campo => !(campo in primer));
-      
-      if (camposFaltantes.length > 0) {
-        return {
-          success: false,
-          mensaje: `Faltan campos: ${camposFaltantes.join(', ')}`
-        };
-      }
-      
-      // Verificar que productos sea un array
-      if (!Array.isArray(primer.productos)) {
-        return {
-          success: false,
-          mensaje: 'El campo productos no es un array'
-        };
-      }
-    }
-    
-    return {
-      success: true,
-      mensaje: 'Lectura exitosa',
-      detalles: `${pedidos.length} pedidos encontrados`
-    };
-  } catch (error) {
-    return {
-      success: false,
-      mensaje: `Error: ${error.toString()}`
-    };
-  }
-}
-
-// ***********************************************
-// 10. Función para Forzar Autorización - testall.gs - V1.01-SV01
-// ***********************************************
-
-function forceAuthorization() {
-  console.log('Forzando autorización de permisos...');
-  console.log('');
-  
-  try {
-    // Acceder a SpreadsheetApp
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    console.log('✓ Acceso a SpreadsheetApp autorizado');
-    
-    // Acceder a propiedades
-    const props = PropertiesService.getScriptProperties();
-    console.log('✓ Acceso a PropertiesService autorizado');
-    
-    // Acceder a UrlFetchApp (si se necesita en el futuro)
-    console.log('✓ Preparado para UrlFetchApp');
-    
-    console.log('');
-    console.log('='.repeat(60));
-    console.log('AUTORIZACIÓN COMPLETADA EXITOSAMENTE');
-    console.log('='.repeat(60));
-    console.log('');
-    console.log('Ahora puedes desplegar la aplicación web.');
-    console.log('Pasos siguientes:');
-    console.log('1. Haz clic en "Implementar" > "Nueva implementación"');
-    console.log('2. Selecciona "Aplicación web"');
-    console.log('3. Ejecutar como: Tu usuario');
-    console.log('4. Quién tiene acceso: Cualquier usuario');
-    console.log('5. Haz clic en "Implementar"');
-    
-    return true;
-  } catch (error) {
-    console.error('✗ Error durante la autorización: ' + error.toString());
-    return false;
-  }
-}
+// ERROR: No se pudo obtener el archivo
+// Dirección no disponible: https://raw.githubusercontent.com/koki81pe/Bebidas/refs/heads/main/testall.gs
 
 
 // ============================================
 // FIN DEL SOLID CODE
-// Tamaño total: 77,493 caracteres
+// Tamaño total: 63,122 caracteres
 // ============================================
